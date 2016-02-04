@@ -3,8 +3,16 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<<<<<<< HEAD
 <title>TR-8R: CSC 460 Project</title>
 <link rel="stylesheet" type="text/css" href="style.css">
+=======
+<title>Foundation | Welcome</title>
+<link rel="stylesheet" type="text/css" href="styles/style.css">
+<link rel="stylesheet" type="text/css" href="styles/atelier-estuary-light.css">
+<script src="styles/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+>>>>>>> 0dd19e6232b4cd4218fb20e17a463cea2129a47c
 
 </head>
 <body>
@@ -32,6 +40,7 @@
 <div class="blog-post">
 <h3>CSC360 Project Phase 1 <small>3/6/2015</small></h3>
 <!-- <img class="thumbnail" src="http://placehold.it/850x350"> -->
+<<<<<<< HEAD
 <h4>Phase 1: System Overview</h4>
 <p>
     The TR-8R system is composed of two independand modules. The command module
@@ -40,8 +49,37 @@
     The actuator module controls the servo motor and the laser based on commands from the
     command module.
 </p>
+=======
+<h4>Project Overview</h4>
+>>>>>>> 0dd19e6232b4cd4218fb20e17a463cea2129a47c
 
 <h4>Phase 1: Joystick, Servo and Laser</h4>
+<p>
+	The purpose of the joystick in the project is to have it interact with the servo and laser. The servo rotates left and right based on the x position of the joystick, and the laser pointer is controlled by the push button included on the joystick. 
+</p>
+<h5>Joystick specifications</h5>
+<p>
+	The joystick has 3 leads excluding GND and 5V, these are VRX, VRY, and SW. The VR connectors output the current X and Y position of the joystick as an analog signal, and the SW connector outputs the state of the push button. The position leads were connected to inputs on our arduino A8 and A9 for X and Y respectively, and the button output to pin 44, as seen in figure X. Usually a pull-up resistor would be used with the button to avoid errors due to the open ended circuit when the button is released, however the arduino library includes the convenient pull-up:
+	<pre><code class="c++">pinMode(44,INPUT_PULLUP)</code></pre>
+	Now the button and joystick coordinates can be read using digitalRead and analogRead methods.
+</p>
+<h5>Servo control</h5>
+<p>
+	The servo is controlled by using pulse width modulation (PWM), where a HIGH signal is transmitted for 500-2500 &micro;s every 20-30 ms, where sending 500 &micro;s pulses positions the servo to the far left, and 2500 &micro;s, the far right. The servo motors are somewhat delicate, so it is important to never send pulses that exceed that range. Additionally, due to the noise and lack of steadiness in controlling the joystick, it is useful to apply some smoothing to the desired position of the joystick in order to reduce jitter. We used exponentially weighted moving average (EWMA) with a weight of 0.9. <br>
+
+	Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below: <br>
+<img class="thumbnail" src="http://placehold.it/300x300"><br>
+	As an additional precaution we put a manual limit on the pulse size, the final servo control code is seen below:
+	<pre><code class="c++">//NEEDS EDITING
+value1 = (value1 * weight) + ((1.0f - weight) * analogRead(joyPin2));
+pos = value1+988;
+if(!(pos <600 || pos > 2400)) {
+	myservo.writeMicroseconds(pos);  
+} 
+delay(20);</code></pre>
+	
+</p>
+<h5>Laser pointer control</h5>
 <h4>Phase 1: Light-sensing and LCD (Feedback)</h4>
 <h5>Light-sensing</h5>
 <p>
