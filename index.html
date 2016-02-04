@@ -3,32 +3,27 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<<<<<<< HEAD
 <title>TR-8R: CSC 460 Project</title>
-<link rel="stylesheet" type="text/css" href="style.css">
-=======
-<title>Foundation | Welcome</title>
 <link rel="stylesheet" type="text/css" href="styles/style.css">
 <link rel="stylesheet" type="text/css" href="styles/atelier-estuary-light.css">
 <script src="styles/highlight.pack.js"></script>
 <script>hljs.initHighlightingOnLoad();</script>
->>>>>>> 0dd19e6232b4cd4218fb20e17a463cea2129a47c
 
 </head>
 <body>
  
-<div class="top-bar">
+<!-- <div class="top-bar">
 <div class="top-bar-left">
 <ul class="menu">
 <li class="menu-text">CSC 460 Project</li>
-    <!--
+    
 <li><a href="#">One</a></li>
 <li><a href="#">Two</a></li>
 <li><a href="#">Three</a></li>
-        -->
+        
 </ul>
 </div>
-</div>
+</div> -->
  
 <div class="callout large primary">
 <div class="row column text-center">
@@ -38,10 +33,9 @@
  
 <div class="row medium-8 large-7 columns">
 <div class="blog-post">
-<h3>CSC360 Project Phase 1 <small>3/6/2015</small></h3>
+<h3>CSC360 Project Phase 1 <small>2/4/2016</small></h3>
 <!-- <img class="thumbnail" src="http://placehold.it/850x350"> -->
-<<<<<<< HEAD
-<h4>Phase 1: System Overview</h4>
+<h4>Project Overview</h4>
 <p>
     The TR-8R system is composed of two independand modules. The command module
     and the actuator module, which communicate over bluetooth. The command module is
@@ -49,9 +43,6 @@
     The actuator module controls the servo motor and the laser based on commands from the
     command module.
 </p>
-=======
-<h4>Project Overview</h4>
->>>>>>> 0dd19e6232b4cd4218fb20e17a463cea2129a47c
 
 <h4>Phase 1: Joystick, Servo and Laser</h4>
 <p>
@@ -67,8 +58,8 @@
 <p>
 	The servo is controlled by using pulse width modulation (PWM), where a HIGH signal is transmitted for 500-2500 &micro;s every 20-30 ms, where sending 500 &micro;s pulses positions the servo to the far left, and 2500 &micro;s, the far right. The servo motors are somewhat delicate, so it is important to never send pulses that exceed that range. Additionally, due to the noise and lack of steadiness in controlling the joystick, it is useful to apply some smoothing to the desired position of the joystick in order to reduce jitter. We used exponentially weighted moving average (EWMA) with a weight of 0.9. <br>
 
-	Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below: <br>
-<img class="thumbnail" src="http://placehold.it/300x300"><br>
+	Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below: <br/>
+<img class="thumbnail" src="http://placehold.it/300x300"/><br/>
 	As an additional precaution we put a manual limit on the pulse size, the final servo control code is seen below:
 	<pre><code class="c++">//NEEDS EDITING
 joyStickX = (joystickX * weight) + ((1.0f - weight) * analogRead(joyPinX));
@@ -81,7 +72,7 @@ delay(20);</code></pre>
 </p>
 <h5>Laser pointer control</h5>
 <p>
-	To control the laser pointer we simply 
+	To control the laser pointer we simply read from the joystick button using the method described above, and output it to the laser pointer via pin 42.
 </p>
 <h4>Phase 1: Light-sensing and LCD (Feedback)</h4>
 <h5>Light-sensing</h5>
@@ -100,7 +91,14 @@ delay(20);</code></pre>
     </table>
 </p>
 <h4>Phase 2: System Overview with Time-Triggered Scheduler</h4>
+<p>
+	Phase 2 introduces the need to communicate between bluetooth radios. In order to accomplish this, our code had to be transformed to use a time-triggered architecture. We used the set up recommended by the professor available <a href="http://nrqm.ca/mechatronics-lab-guide/lab-guide-time-triggered-scheduling/">here</a>. The ability to schedule tasks to only run on certain invervals allows for synchronization between the devices. <br/>
+	The way the scheduler works is documented at the URL provided, but a brief overview is included here too. The scheduler must be initialized using Scheduler_Init(), followed by passing each task as a callback into the Scheduler_StartTask method, along with the initial delay (ms from the start of each cycle to run), and the period (how often to run the task).
+	Note: scheduler.cpp was giving us errors, especially with the millis() method, but this was fixed by renaming it to scheduler.ino
+</p>
 <h4>Phase 2: Bluetooth Radio Interfacing and Integration</h4>
+<h5>Command module</h5>
+<h5>Actuator module</h5>
 <h4>Phase 2: Timing Specification and Measurements</h4>
 <div class="callout">
 <ul class="menu simple">
@@ -116,6 +114,6 @@ delay(20);</code></pre>
 <script src="http://dhbhdrzi4tiry.cloudfront.net/cdn/sites/foundation.js"></script>
 <script>
       $(document).foundation();
-    </script>
+</script>
 </body>
 </html>
