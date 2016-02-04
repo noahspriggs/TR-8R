@@ -76,20 +76,46 @@ delay(20);</code></pre>
 </p>
 <h4>Phase 1: Light-sensing and LCD (Feedback)</h4>
 <h5>Light-sensing</h5>
-<p>
-    <table style="border-width: 0px; border-color: white;">
-        <tbody style="border-width: 0px;">
-            <tr>
-                <td>
-                    <img src="photoresistors.png" width="317" height="519" />
-                </td>
-                <td style="vertical-align: top;">
-                    Photoresistors are resistors than change resistance based on their explosure to light. 
-                </td>
-            </tr>
-        </tbody>
-    </table>
-</p>
+    <p>
+        <table style="border-width: 0px; border-color: white;">
+            <tbody style="border-width: 0px;">
+                <tr>
+                    <td>
+                        <img src="photoresistors.png" width="317" height="519" style="min-width: 150px;" />
+                    </td>
+                    <td style="vertical-align: top;">
+                        Photoresistors are resistors than change resistance based on their explosure to light. In this project the photoresistors job is to detect if TR-8R has been hit by the laser or not. The resistors need to vary the voltage approximately within the range of 0-5V to be read easily by the analogue inputs on the Audrino, so an aditional 10k&#x2126 resistor is required. We use multiple photoresistors in parallel to reduce the variance in readings. We also cluster the heads of the photoresistors together so that the laser can hit multiple photoresistors at the same time (see below image). Expoentially weighted moving average is used to smooth the inputs so that noise has less of an effect on the light/no-light reading.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+    </p>
+    <p>
+        <table style="border-width: 0px; border-color: white;">
+            <tbody style="border-width: 0px;">
+                <tr>
+                    <td>
+                        <img class="thumbnail" src="http://placehold.it/300x300" alt="Clustered photoresistors" style="min-width: 200px;" />
+                    </td>
+                    <td style="vertical-align: top;">
+                        <pre><code class="c++">weightedLightValue = (weightedLightValue*lightWeight) + ((1.0f - lightWeight) * 
+                                analogRead(lightPin)); 
+  
+lcd.setCursor(0,1);
+lcd.print("LIGHT?");
+lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
+                        </pre>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </p>
+<h5>LCD</h5>
+    <p>
+        The LCD display informs the user if the photoresistors have detected the laser, and if the button on the Joystick is depressed. The LCD is updated immediatly when new data arrives from the photoresistors or the joystick button, rather that haveing a separate update cycle. 
+    </p>
+    <img class="thumbnail" src="http://placehold.it/700x300" alt="LCD" />
 <h4>Phase 2: System Overview with Time-Triggered Scheduler</h4>
 <p>
 	Phase 2 introduces the need to communicate between bluetooth radios. In order to accomplish this, our code had to be transformed to use a time-triggered architecture. We used the set up recommended by the professor available <a href="http://nrqm.ca/mechatronics-lab-guide/lab-guide-time-triggered-scheduling/">here</a>. The ability to schedule tasks to only run on certain invervals allows for synchronization between the devices. <br/>
