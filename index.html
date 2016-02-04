@@ -3,11 +3,16 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<<<<<<< HEAD
+<title>TR-8R: CSC 460 Project</title>
+<link rel="stylesheet" type="text/css" href="style.css">
+=======
 <title>Foundation | Welcome</title>
 <link rel="stylesheet" type="text/css" href="styles/style.css">
 <link rel="stylesheet" type="text/css" href="styles/atelier-estuary-light.css">
 <script src="styles/highlight.pack.js"></script>
 <script>hljs.initHighlightingOnLoad();</script>
+>>>>>>> 0dd19e6232b4cd4218fb20e17a463cea2129a47c
 
 </head>
 <body>
@@ -15,10 +20,12 @@
 <div class="top-bar">
 <div class="top-bar-left">
 <ul class="menu">
-<li class="menu-text">Blog</li>
+<li class="menu-text">CSC 460 Project</li>
+    <!--
 <li><a href="#">One</a></li>
 <li><a href="#">Two</a></li>
 <li><a href="#">Three</a></li>
+        -->
 </ul>
 </div>
 </div>
@@ -33,7 +40,18 @@
 <div class="blog-post">
 <h3>CSC360 Project Phase 1 <small>3/6/2015</small></h3>
 <!-- <img class="thumbnail" src="http://placehold.it/850x350"> -->
+<<<<<<< HEAD
+<h4>Phase 1: System Overview</h4>
+<p>
+    The TR-8R system is composed of two independand modules. The command module
+    and the actuator module, which communicate over bluetooth. The command module is
+    responsible for managing the joystick (with associated button) and the photoresistors.
+    The actuator module controls the servo motor and the laser based on commands from the
+    command module.
+</p>
+=======
 <h4>Project Overview</h4>
+>>>>>>> 0dd19e6232b4cd4218fb20e17a463cea2129a47c
 
 <h4>Phase 1: Joystick, Servo and Laser</h4>
 <p>
@@ -66,12 +84,27 @@ delay(20);</code></pre>
 	To control the laser pointer we simply 
 </p>
 <h4>Phase 1: Light-sensing and LCD (Feedback)</h4>
+<h5>Light-sensing</h5>
+<p>
+    <table style="border-width: 0px; border-color: white;">
+        <tbody style="border-width: 0px;">
+            <tr>
+                <td>
+                    <img src="photoresistors.png" width="317" height="519" />
+                </td>
+                <td style="vertical-align: top;">
+                    Photoresistors are resistors than change resistance based on their explosure to light. 
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</p>
 <h4>Phase 2: System Overview with Time-Triggered Scheduler</h4>
 <h4>Phase 2: Bluetooth Radio Interfacing and Integration</h4>
 <h4>Phase 2: Timing Specification and Measurements</h4>
 <div class="callout">
 <ul class="menu simple">
-<li>Author: Noah Spriggs, Murray Dunne</li>
+<li>Authors: Noah Spriggs, Murray Dunne</li>
 </ul>
 </div>
 </div>
