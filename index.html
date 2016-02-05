@@ -53,11 +53,11 @@
             <p>
                 The joystick has 3 leads excluding GND and 5V, these are VRX, VRY, and SW. The VR connectors output the current X and Y position of the joystick as an analog signal, and the SW connector outputs the state of the push button. The position leads were connected to inputs on our arduino A8 and A9 for X and Y respectively, and the button output to pin 44, as seen in figure X. Usually a pull-up resistor would be used with the button to avoid errors due to the open ended circuit when the button is released, however the arduino library includes the convenient pull-up:
                 <pre><code class="c++">pinMode(44,INPUT_PULLUP)</code></pre>
-                Now the button and joystick coordinates can be read using digitalRead and analogRead methods.
+                The button and joystick coordinates were read using the digitalRead and analogRead methods.
             </p>
             <h5>Servo control</h5>
             <p>
-                The servo is controlled by using pulse width modulation (PWM), where a HIGH signal is transmitted for 500-2500 &micro;s every 20-30 ms, where sending 500 &micro;s pulses positions the servo to the far left, and 2500 &micro;s, the far right. The servo motors are somewhat delicate, so it is important to never send pulses that exceed that range. Additionally, due to the noise and lack of steadiness in controlling the joystick, it is useful to apply some smoothing to the desired position of the joystick in order to reduce jitter. We used exponentially weighted moving average (EWMA) with a weight of 0.9. <br>
+                The servo is controlled by using pulse width modulation (PWM), where a HIGH signal is transmitted for 500-2500 &micro;s every 20-30 ms. Sending 500 &micro;s pulses positions the servo to the far left, and 2500 &micro;s, the far right. The servo motors are somewhat delicate, so it is important to never send pulses that exceed that range. Additionally, due to the noise and lack of steadiness in controlling the joystick, it is useful to apply some smoothing to the desired position of the joystick in order to reduce jitter. We used exponentially weighted moving average (EWMA) with a weight of 0.9. <br>
 
                 Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below. <br />
                 An example of the minimum pulse width we expect given our conditions, this was captured with the joystick at the far left:
@@ -137,7 +137,7 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
             <h5>Command module</h5>
             <img src="commandmdl.png" />
             <p>
-                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed.
+                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. If we alternated the signals, the servo would behave slightly more jittery, this way allowed us to have the smoothest motion possible. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed.
             </p><pre><code class="c++">int bluetoothSend = joystickSendValue * 2 + isButtonUp; 
 Serial1.write(bluetoothSend);</code></pre>
             <br/>
@@ -146,7 +146,7 @@ Serial1.write(bluetoothSend);</code></pre>
             <p>	
             	The actuator module handles output from the command module and conveys the recieved information to the servo and lase pointer. Each cycle, the first bit of the recieved data is read and used to set the laser pointer, high or low. Then the remaining 7 bits are used to send a signal to the servo, again using PWM. The shift from phase 1 to phase 2 for these components was relatively smooth, the move servo and set light code segments were moved into their own functions so they could be activated as tasks, and a new method was created to read from the serial port that the bluetooth is outputting to. This code can be seen below.
             	<pre><code>#include "scheduler.h"
-#include <Servo.h>
+#include &lt;Servo.h&gt;
  
 int serialInput;
 int servoPin = 40;
@@ -193,10 +193,16 @@ void loop()
   {
     delay(idle_period);
   }
-}</pre></code>
+}</code></pre>
             </p>
             <hr />
-            <h4>Phase 2: Timing Specification and Measurements</h4>
+            <h4>Phase 2: Testing Results</h4>
+            <p>
+            	The final result of this project was two seperate components that were able to interact 
+            	with eachother wirelessly. The photoresistors successfully percieved the laser pointer light when targetted directly. In order to increase the size of the target and simplify ranged aiming a dish could be added and 
+            	the light threshold reduced, but we decided to keep the setup simple until we near the final robot construction. 
+            	The range of the bluetooth devices spanned approximately 20-25m, lower when any obstacles were present. When both components were within 10m of each other there was no noticable inteference. Experimentation with different weights for the EWMA of the servo and the photoresistors found that there was some jitter in the results when using low weights (0.5-0.7), and that using high weights (0.95+) introduced noticable latency in the responsiveness of the devices. A weight of 0.9 produced smooth and responsive results.
+            </p>
             <div class="callout">
                 <ul class="menu simple">
                     <li>Authors: Noah Spriggs, Murray Dunne</li>
