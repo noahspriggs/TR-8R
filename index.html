@@ -37,6 +37,7 @@
             <!-- <img class="thumbnail" src="http://placehold.it/850x350"> -->
             <hr />
             <h4>Project Overview</h4>
+            <img src="system.png" style="height: 300px;" />
             <p>
                 The TR-8R system is composed of two independand modules. The command module
                 and the actuator module, which communicate over bluetooth. The command module is
@@ -51,8 +52,8 @@
             </p>
             <h5>Joystick specifications</h5>
             <p>
-                The joystick has 3 leads excluding GND and 5V, these are VRX, VRY, and SW. The VR connectors output the current X and Y position of the joystick as an analog signal, and the SW connector outputs the state of the push button. The position leads were connected to inputs on our arduino A8 and A9 for X and Y respectively, and the button output to pin 44, as seen in figure X. Usually a pull-up resistor would be used with the button to avoid errors due to the open ended circuit when the button is released, however the arduino library includes the convenient pull-up:
-                <pre><code class="c++">pinMode(44,INPUT_PULLUP)</code></pre>
+                The joystick has 3 leads excluding GND and 5V, these are VRX, VRY, and SW. The VR connectors output the current X and Y position of the joystick as an analog signal, and the SW connector outputs the state of the push button. The position leads were connected to inputs on our arduino A8 and A9 for X and Y respectively, and the button output to pin 44, as seen in figure X. Usually a pull-up resistor would be used with the button to avoid errors due to the open ended circuit when the button is released, however the arduino includes pull-ups, which can be activated from software as follows:
+                <pre><code class="c++">pinMode(44,INPUT_PULLUP);</code></pre></br>
                 Now the button and joystick coordinates can be read using digitalRead and analogRead methods.
             </p>
             <h5>Servo control</h5>
@@ -86,10 +87,10 @@ delay(20);</code></pre>
                     <tbody style="border-width: 0px;">
                         <tr>
                             <td>
-                                <img src="photoresistors.png" width="317" height="519" style="min-width: 150px;" />
+                                <img src="photoresistors.png" width="317" height="519" style="width: 550px;" />
                             </td>
                             <td style="vertical-align: top;">
-                                Photoresistors are resistors than change resistance based on their explosure to light. In this project the photoresistors job is to detect if TR-8R has been hit by the laser or not. The resistors need to vary the voltage approximately within the range of 0-5V to be read easily by the analogue inputs on the Audrino, so an aditional 10k&#x2126 resistor is required. We use multiple photoresistors in parallel to reduce the variance in readings. We also cluster the heads of the photoresistors together so that the laser can hit multiple photoresistors at the same time (see below image). Expoentially weighted moving average is used to smooth the inputs so that noise has less of an effect on the light/no-light reading.
+                                Photoresistors are resistors than change resistance based on their explosure to light. In this project the photoresistors job is to detect if TR-8R has been hit by the laser or not. The resistors need to vary the voltage approximately within the range of 0-5V to be read easily by the analogue inputs on the Audrino, so an aditional 10k&#x2126 resistor is required. We use multiple photoresistors in parallel to reduce the variance in readings. We also cluster the heads of the photoresistors together so that the laser can hit multiple photoresistors at the same time (see below image). Exponentially weighted moving average is used to smooth the inputs so that noise has less of an effect on the light/no-light reading.
                             </td>
                         </tr>
                     </tbody>
@@ -101,7 +102,7 @@ delay(20);</code></pre>
                     <tbody style="border-width: 0px;">
                         <tr>
                             <td>
-                                <img class="thumbnail" src="http://placehold.it/300x300" alt="Clustered photoresistors" style="min-width: 200px;" />
+                                <img class="thumbnail" src="photoresistorsactual.png" alt="Clustered photoresistors" style="width: 300px;" />
                             </td>
                             <td style="vertical-align: top;">
                                 <pre><code class="c++">weightedLightValue = (weightedLightValue*lightWeight) + ((1.0f - lightWeight) * 
@@ -120,7 +121,7 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
             <p>
                 The LCD display informs the user if the photoresistors have detected the laser, and if the button on the Joystick is depressed. The LCD is updated immediatly when new data arrives from the photoresistors or the joystick button, rather that having a separate update cycle.
             </p>
-            <img class="thumbnail" src="http://placehold.it/700x300" alt="LCD" />
+            <img class="thumbnail" src="lcd.png" style="height: 200px;" alt="LCD" />
             <hr />
             <h4>Phase 2: System Overview with Time-Triggered Scheduler</h4>
             <p>
@@ -137,7 +138,7 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
             <h5>Command module</h5>
             <img src="commandmdl.png" />
             <p>
-                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed.
+                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed. The code for the command module can be seen below.
             </p><!--<pre><code class="c++">int bluetoothSend = joystickSendValue * 2 + isButtonUp; 
 Serial1.write(bluetoothSend);</code></pre>-->
             <pre><code>#include &lt;LiquidCrystal.h&gt;
