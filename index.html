@@ -59,12 +59,16 @@
             <p>
                 The servo is controlled by using pulse width modulation (PWM), where a HIGH signal is transmitted for 500-2500 &micro;s every 20-30 ms, where sending 500 &micro;s pulses positions the servo to the far left, and 2500 &micro;s, the far right. The servo motors are somewhat delicate, so it is important to never send pulses that exceed that range. Additionally, due to the noise and lack of steadiness in controlling the joystick, it is useful to apply some smoothing to the desired position of the joystick in order to reduce jitter. We used exponentially weighted moving average (EWMA) with a weight of 0.9. <br>
 
-                Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below: <br />
-                <img class="thumbnail" src="http://placehold.it/300x300" /><br />
+                Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below. <br />
+                An example of the minimum pulse width we expect given our conditions, this was captured with the joystick at the far left:
+                <img src="minpulse.png" /><br />
+                An example of the maximum pulse width we expect give (joystick far right):
+                 <img src="maxpulse.png" /><br />
                 As an additional precaution we put a manual limit on the pulse size, the final servo control code is seen below:
+               
                 <pre><code class="c++">joyStickX = (joystickX * weight) + ((1.0f - weight) * analogRead(joyPinX));
 servoPos = joyStickX+988;
-if(!(pos < 550 || pos > 2450)) {
+if(!(pos < 600 || pos > 2400)) {
 	myservo.writeMicroseconds(pos);  
 } 
 delay(20);</code></pre>
@@ -131,13 +135,67 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
                 The bluetooth modules behave like a wireless UART port. The lack of a wire means that each modules needs another way to identify who to communicate with, as there could be several different systems using bluetooth in range. The process of attaching modules to eachother wirelessly is called <i>pairing</i>, and involves a master device and a slave device. It doens't matter which module is the master and which is the slave, becuase, once paired, they behave identially. Since the bluetooth modules act as UART ports, you can wire them as a loopback and configure them interactively. Using the Audrino as a passthrough, we connected a terminal to each bluetooth module and set each modules PIN to the same value (using the AT+PIN command) and one to master, one to slave (using the AT+ROLE command). After letting the modules discharge for 30 minutes, the pairing is complete. Now the modules can be wired as if they were the other audrino board's UART ports, and, once powered, will connect to each other automatically. For more information, see the HC-06 Configuration Guide.
             </p>
             <h5>Command module</h5>
+            <img src="commandmdl.png" />
             <p>
                 The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed.
             </p><pre><code class="c++">int bluetoothSend = joystickSendValue * 2 + isButtonUp; 
 Serial1.write(bluetoothSend);</code></pre>
             <br/>
             <h5>Actuator module</h5>
+            <img src="actuatormdl.png" />
+            <p>	
             	The actuator module handles output from the command module and conveys the recieved information to the servo and lase pointer. Each cycle, the first bit of the recieved data is read and used to set the laser pointer, high or low. Then the remaining 7 bits are used to send a signal to the servo, again using PWM. The shift from phase 1 to phase 2 for these components was relatively smooth, the move servo and set light code segments were moved into their own functions so they could be activated as tasks, and a new method was created to read from the serial port that the bluetooth is outputting to. This code can be seen below.
+            	<pre><code>#include "scheduler.h"
+#include <Servo.h>
+ 
+int serialInput;
+int servoPin = 40;
+int laserPin = 42;
+Servo myservo;
+
+void readSerial()
+{
+  if(Serial1.available()) {
+    serialInput = Serial1.read();
+  }
+}
+
+void controlHW()
+{
+  if (serialInput % 2 == 0) {
+    digitalWrite(42,HIGH);  
+  } else {
+    digitalWrite(42,LOW);  
+  }
+  int pos = (serialInput/2)*14 + 600;
+  if(!(pos <600 || pos > 2400)) {
+    myservo.writeMicroseconds(pos);  
+  }  
+}
+
+void setup()
+{
+  pinMode(laserPin,OUTPUT);
+  pinMode(servoPin,OUTPUT);
+  Serial.begin(9600);
+  Serial1.begin(9600);
+  myservo.attach(servoPin);
+ 
+  Scheduler_Init();
+  Scheduler_StartTask(0, 20, readSerial);
+  Scheduler_StartTask(5, 20, controlHW);
+}
+ 
+void loop()
+{
+  uint32_t idle_period = Scheduler_Dispatch();
+  if (idle_period)
+  {
+    delay(idle_period);
+  }
+}</pre></code>
+            </p>
+            <hr />
             <h4>Phase 2: Timing Specification and Measurements</h4>
             <div class="callout">
                 <ul class="menu simple">
