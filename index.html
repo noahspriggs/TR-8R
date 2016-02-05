@@ -137,13 +137,87 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
             <h5>Command module</h5>
             <img src="commandmdl.png" />
             <p>
-                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. If we alternated the signals, the servo would behave slightly more jittery, this way allowed us to have the smoothest motion possible. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed.
-            </p><pre><code class="c++">int bluetoothSend = joystickSendValue * 2 + isButtonUp; 
-Serial1.write(bluetoothSend);</code></pre>
+                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. If we alternated sending the laser signal and the servo signal, the servo behaved slightly more jittery, this way allowed us to have the smoothest motion possible. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed.
+            </p><!--<pre><code class="c++">int bluetoothSend = joystickSendValue * 2 + isButtonUp; 
+Serial1.write(bluetoothSend);</code></pre>-->
+            <pre><code>#include &lt;LiquidCrystal.h&gt;
+#include "scheduler.h"
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+int joystickUnused = 8;                 
+int joystickActiveAxis = 9;                
+int buttonPin = 41;
+int lightPin = 13;
+
+int weightedJoystickValue = 512;                  
+float joystickWeight = 0.9f;
+float lightWeight = 0.9f;
+int weightedLightValue = 0;
+int isButtonUp = 1;
+int joystickSendValue = 64;
+
+void read_button_task() {
+  lcd.setCursor(0,0);
+  int pinValue = digitalRead(buttonPin);
+  
+  if(pinValue < 1 && isButtonUp == 1) {
+    isButtonUp = 0;
+  } else if(pinValue > 0 && isButtonUp == 0) {
+    isButtonUp = 1;
+  }  
+  
+  if(isButtonUp) {
+    lcd.print("BTN:UP");
+  } else {
+    lcd.print("BTN:DN");
+  }
+}
+void read_joystick_task() {
+  weightedJoystickValue = (weightedJoystickValue * joystickWeight) + ((1.0f - joystickWeight) * analogRead(joystickActiveAxis));   
+  
+  joystickSendValue = weightedJoystickValue / 8;
+  if(joystickSendValue > 127) { joystickSendValue = 127; }
+  if(joystickSendValue < 0) { joystickSendValue = 0; }
+}
+void send_bluetooth_task() {
+  int bluetoothSend = joystickSendValue * 2 + isButtonUp;
+  
+  Serial1.write(bluetoothSend);
+}
+void read_light_task() {
+  weightedLightValue = (weightedLightValue*lightWeight) + ((1.0f - lightWeight) * analogRead(lightPin)); 
+  
+  lcd.setCursor(0,1);
+  lcd.print("LIGHT?");
+  lcd.print((weightedLightValue < 250 ? "NO " : "YES"));
+}
+  
+void setup() {
+  lcd.begin(16, 2);              
+  lcd.setCursor(0,0);
+  Serial1.begin(9600);
+  
+  pinMode(buttonPin, INPUT_PULLUP);
+  
+  Scheduler_Init();
+  
+  Scheduler_StartTask(0, 20, read_button_task);   
+  Scheduler_StartTask(5, 20, read_joystick_task);  
+  Scheduler_StartTask(10, 20, send_bluetooth_task);
+  Scheduler_StartTask(15, 20, read_light_task);
+}
+void loop() {
+  uint32_t idle_period = Scheduler_Dispatch();
+  if (idle_period)
+  {
+    delay(idle_period);
+  }   
+}
+</code></pre>
+>>>>>>> 0cbba4a64be0e8589b3f7952a63751c3c9bef401
             <br/>
             <h5>Actuator module</h5>
             <img src="actuatormdl.png" />
-            <p>	
             	The actuator module handles output from the command module and conveys the recieved information to the servo and lase pointer. Each cycle, the first bit of the recieved data is read and used to set the laser pointer, high or low. Then the remaining 7 bits are used to send a signal to the servo, again using PWM. The shift from phase 1 to phase 2 for these components was relatively smooth, the move servo and set light code segments were moved into their own functions so they could be activated as tasks, and a new method was created to read from the serial port that the bluetooth is outputting to. This code can be seen below.
             	<pre><code>#include "scheduler.h"
 #include &lt;Servo.h&gt;
@@ -168,7 +242,7 @@ void controlHW()
     digitalWrite(42,LOW);  
   }
   int pos = (serialInput/2)*14 + 600;
-  if(!(pos <600 || pos > 2400)) {
+  if(!(pos < 600 || pos > 2400)) {
     myservo.writeMicroseconds(pos);  
   }  
 }
