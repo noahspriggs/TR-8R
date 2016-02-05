@@ -115,7 +115,7 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
             </p>
             <h5>LCD</h5>
             <p>
-                The LCD display informs the user if the photoresistors have detected the laser, and if the button on the Joystick is depressed. The LCD is updated immediatly when new data arrives from the photoresistors or the joystick button, rather that haveing a separate update cycle.
+                The LCD display informs the user if the photoresistors have detected the laser, and if the button on the Joystick is depressed. The LCD is updated immediatly when new data arrives from the photoresistors or the joystick button, rather that having a separate update cycle.
             </p>
             <img class="thumbnail" src="http://placehold.it/700x300" alt="LCD" />
             <hr />
@@ -125,8 +125,18 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
                 The way the scheduler works is documented at the URL provided, but a brief overview is included here too. The scheduler must be initialized using Scheduler_Init(), followed by passing each task as a callback into the Scheduler_StartTask method, along with the initial delay (ms from the start of each cycle to run), and the period (how often to run the task).
                 Note: scheduler.cpp was giving us errors, especially with the millis() method, but this was fixed by renaming it to scheduler.ino
             </p>
+            <hr />
             <h4>Phase 2: Bluetooth Radio Interfacing and Integration</h4>
+            <h5>Pairing</h5>
+            <p>
+                The bluetooth modules behave like a wireless UART port. The lack of a wire means that each modules needs another way to identify who to communicate with, as there could be several different systems using bluetooth in range. The process of attaching modules to eachother wirelessly is called <i>pairing</i>, and involves a master device and a slave device. It doens't matter which module is the master and which is the slave, becuase, once paired, they behave identially. Since the bluetooth modules act as UART ports, you can wire them as a loopback and configure them interactively. Using the Audrino as a passthrough, we connected a terminal to each bluetooth module and set each modules PIN to the same value (using the AT+PIN command) and one to master, one to slave (using the AT+ROLE command). After letting the modules discharge for 30 minutes, the pairing is complete. Now the modules can be wired as if they were the other audrino board's UART ports, and, once powered, will connect to each other automatically.
+            </p>
             <h5>Command module</h5>
+            <p>
+                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed.
+            </p><pre><code class="c++">int bluetoothSend = joystickSendValue * 2 + isButtonUp; 
+Serial1.write(bluetoothSend);</code></pre>
+            <br/>
             <h5>Actuator module</h5>
             <h4>Phase 2: Timing Specification and Measurements</h4>
             <div class="callout">
