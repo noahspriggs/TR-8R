@@ -137,6 +137,7 @@ lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
 Serial1.write(bluetoothSend);</code></pre>
             <br/>
             <h5>Actuator module</h5>
+            	The actuator module handles output from the command module and conveys the recieved information to the servo and lase pointer. Each cycle, the first bit of the recieved data is read and used to set the laser pointer, high or low. Then the remaining 7 bits are used to send a signal to the servo, again using PWM. The shift from phase 1 to phase 2 for these components was relatively smooth, the move servo and set light code segments were moved into their own functions so they could be activated as tasks, and a new method was created to read from the serial port that the bluetooth is outputting to. This code can be seen below.
             <h4>Phase 2: Timing Specification and Measurements</h4>
             <div class="callout">
                 <ul class="menu simple">
