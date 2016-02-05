@@ -62,8 +62,7 @@
                 Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below: <br />
                 <img class="thumbnail" src="http://placehold.it/300x300" /><br />
                 As an additional precaution we put a manual limit on the pulse size, the final servo control code is seen below:
-                <pre><code class="c++">//NEEDS EDITING
-joyStickX = (joystickX * weight) + ((1.0f - weight) * analogRead(joyPinX));
+                <pre><code class="c++">joyStickX = (joystickX * weight) + ((1.0f - weight) * analogRead(joyPinX));
 servoPos = joyStickX+988;
 if(!(pos < 550 || pos > 2450)) {
 	myservo.writeMicroseconds(pos);  
