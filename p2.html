@@ -52,12 +52,89 @@
 
             <hr />
             <h4>Booting and Context-Switching</h4>
+            <p>
+              <h5>Initialization</h5>
+              The system begins 
+              <h5>Context-Switching</h5>
+              <h5>Main Loop</h5>
+                The main loop of the kernel is entered every time a task makes a kernel call, the list of kernel calls is below:
+                <ul style="padding-left:20px;">
+                <li>Task_Create( void (*f)(int), PRIORITY py, int arg)</li>
+                <li>Task_Terminate(void);</li>
+                <li>Task_Yield(void)</li>
+                <li>Task_GetArg(void)</li>
+                <li>Task_Suspend( PID p )</li>          
+                <li>Task_Resume( PID p )</li>
 
+                <li>Task_Sleep(TICK t)</li>
+
+                <li>Mutex_Init(void)</li>
+
+                <li>Mutex_Lock(MUTEX m)</li>
+
+                <li>Mutex_Unlock(MUTEX m)</li>
+
+
+                <li>Event_Init(void)</li>
+
+                <li>Event_Wait(EVENT e)</li>
+
+                <li>Event_Signal(EVENT e)</li>
+                </ul>
+                Each kernel call has a request flag associated with it, when called by a task,the task sets its request appropriately then enters the kernel. The kernel sees the flag, processes the request, then activates the scheduler to schedule the next task. Along with the flag, any parameters the task wishes to pass must be stored using the task's passthrough parameter. 
+            </p>
             <h4>Priority-based Scheduling</h4>
             <!-- Noah -->
-            
+            <p>
+               We switch between tasks using a priority based scheduler, where the highest priority task is run as much as possible. Apart from priority, tasks also have states which influence the schedulers decision on which task to run next. A finite state machine is shown below illustrating the possible state transitions.<br/>
+              <img src="taskfsm.png"/>
+
+
+               The design allows the user to specify a number of priorities (MINPRIORITY) to enable, with 0 being the highest priority and MINPRIORTY-1 being the lowest. A priority queue is kept for each priority. When the scheduler is called, the current task is placed at the back of its queue. The scheduler then observes every element in each queue traversing the queues in order of priority until it finds a task in the READY state. If no ready task is found, a dummy task is always enabled at the lowest priority which causes the scheduler to loop and recheck for ready states infinitely.<br/>
+               The code for selecting the next task can be seen below, where NextP(i) sends the current element at the front the queue for priority i to the back.  
+
+               <pre><code class="c++">for(int i = 0; i < MINPRIORITY;i++) {
+  for(int j = 0; j < PriorityCounts[i]; j++) {
+    if (Process[RunList[i][0]].state == READY) {
+      Cp = &(Process[RunList[i][0]]);
+      breaker = 1;
+      break;
+    }
+    NextP(i);
+  }
+  if(breaker) break;
+  if (i == MINPRIORITY-1) {
+    return 0;
+  }
+}</code></pre>
+
+               The scheduler must be called willingly by a task inorder for other tasks to run. Note that any time a lower priority task makes a call to the kernel, it counts as calling the scheduler and it will be pre-empted by any task of equal or higher priority, even if it is trying to suspend another task or unlock a mutex. This is done in order to ensure that the highest priority task will be running as much as possible. Alternatively, if we wanted to allow tasks to enter the kernel without explicitly calling Task_Yield(), the dispatch call would only be made if the kernel request was NEXT, instead of every time the kernel is entered.
+
+
+            </p>
             <h4>Task Suspension/Resumption/Sleeping</h4>
-            <!-- Noah -->
+            <h5>Suspension</h5>
+              When a task is suspended it can not be scheduled until another task resumes it. In order to accomplish this behaviour, all the kernel needs to do is follow the state machine above. For example if a task is resumed while it is blocking or sleeping, it must go back to those states, otherwise it will go back to the ready state.
+            <h5>Sleeping</h5>
+              Sleeping is very similar to suspension with the additional complication of waking up automatically, as opposed to the wakeup being triggered by another task. This is done using timers. A timer ISR is scheduled in initialization to go off every 10ms. When a task calls sleep it passes the number of timer ticks T as a minimum sleep duration. The kernel call for this is relatively simple, we set the duration of the sleep to T+1 to account for calling sleep in between timer ticks. For example, if a task calls Task_Sleep(10) half way in between timer ticks, it should wake up after 10.5 ticks, not 9.5.
+              <pre><code class="c++">void Kernel_Task_Sleep(TICK t) {
+  WakeUpTime[Cp->pid] = t+1;
+  Cp->state = SLEEPING;
+}</code></pre>
+              The timer ISR must decrement every non-zero task sleep time and wake up the tasks whose sleep time has expired. As can be seen below, the timer also follows the task state machine when waking up tasks.
+            <pre><code class="c++">ISR(TIMER3_COMPA_vect) {
+  for(int i = 0; i<MAXTHREAD;i++) {
+    if(WakeUpTime[i]>1) {
+    WakeUpTime[i]--;    
+  } else if (WakeUpTime[i] == 1) {
+    WakeUpTime[i] = 0;
+    if(Process[i].state == SLEEPING_SUSPENDED) {
+      Process[i].state = SUSPENDED;  
+    } else {
+      Process[i].state = READY;  
+    }
+  }
+}</code></pre>
             <h4>Mutexes and Priorty Inheritance</h4>
             <!-- Murray -->
             <h4>Events</h4>
