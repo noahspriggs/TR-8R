@@ -47,7 +47,7 @@
             <hr />
             <h4>Project Overview</h4>
             <p>
-               
+
             </p>
 
             <hr />
@@ -55,17 +55,145 @@
 
             <h4>Priority-based Scheduling</h4>
             <!-- Noah -->
-            
+
             <h4>Task Suspension/Resumption/Sleeping</h4>
             <!-- Noah -->
-            <h4>Mutexes and Priorty Inheritance</h4>
-            <!-- Murray -->
+            <h4>Mutexes and Priority Inheritance</h4>
+            <p>
+              Priority inheritance is the process by which a lower priority task that has control of a mutex is promoted to the priortiy of the highest waiting task on that mutex. This is done becuase of the priority inversion problem whereby a lower priority task has a mutex, which a higher priority task wants, can be interrupted indefinitely by a medium priority task, never letting the high priortiy task run. We resolve this by searching the queue and the current owning task for a new highest priortiy to assign the current owning task whenever a task is added or removed from the queue.
+            </p>
+            <p>
+              A mutex is acessed by three methods. Mutex_Init, Mutex_Lock, and Mutex_Unlock. Mutex_Init simply zeros out the mutex structure and decrements the count of available mutexes. The real work happens in Mutex_Lock and Mutex_Unlock. There are three cases for locking a mutex.
+              <ul style="padding-left:20px;">
+                 <li>The mutex is currently available. The kernel sets the current task as the owner of the mutex, sets the mutex lock count to one, and records the original priority of the owning task.</li>
+                 <li>The mutex is already locked by the current task. The kernel simply increments the locked count of the mutex.</li>
+                 <li>The mutex is locked by another task. This is the most complicated case. The current task is appended to the wait queue, and the task that currently owns the mutex is promoted to the highest priority between itself and all tasks in the queue. This neatly implements <i><b>priority inheritance</b></i>, without worrying about storing a chain of inherited priorities. The current task is then blocked. The relevant code for this case follows:</li>
+              </ul>
+              <pre><code class="c++">// add current process to end of queue
+mut->queue[mut->queue_length] = Cp->pid;
+mut->queue_length++;
+
+// promote the process with the lock to the highest priority in the queue
+// or it's original priority, whichever is higher
+PRIORITY current_min = mut->current_owner_original_priority;
+for (i = 0; i < mut->queue_length; i++)
+{
+	if (Process[mut->queue[i]].pid < current_min)
+	{
+		current_min = Process[mut->queue[i]].pid;
+	}
+}
+
+// actually set the new priority
+Change_Priority(mut->owner, current_min);
+
+// now block the current process
+Cp->state = BLOCKED;
+</code></pre>
+            </p>
+            <p>Similarily, there are three cases for unlocking a mutex. We do not consider the case where a task unlocks a mutex is does not own, that is undefined behaviour.
+              <ul style="padding-left:20px;">
+                <li>This task has previously locked the mutex multiple times, and has not yet unlocked it that many times. The kernel simply decrements the locked count of the mutex.</li>
+                <li>This unlock call will bring the locked count from one to zero and there are no tasks waiting in the queue. The kernel sets the locked count to zero and sets the owner to nobody.</li>
+                <li>This unlock call will bring the locked count from one to zero and there are tasks waiting in the queue. This is the most complicated case. The kernel first restores the old owner to its original priortiy, and removes it as owner of the mutex. The kernel then takes the first task from the queue, and sets it as the owner of the mutex, sets the mutexes locked count to zero, and records the original priortiy of the new owner. It then shuffles the queue along (as the first spot is now empty) and the new owner is promoted to the highest priority between itself and all tasks in the queue. Now if the new owner was previously suspended while blocking on this mutex (i.e. it was in the BLOCKED_SUSPENDED state) it is still suspended, but no longer blocked. If the new owner was not suspended, then is is now ready to be scheduled. The relevant code for this case follows:</li>
+              </ul>
+              <pre><code class="c++">// take the first member off the queue
+mut->owner = mut->queue[0];
+mut->locked = 1;
+mut->current_owner_original_priority = Process[mut->owner].priority;
+
+// shuffle the queue along (and keep note of the max priortiy) becuase we need
+// to promote the process with the lock to the highest priority in the queue
+// or it's original priority, whichever is higher
+PRIORITY current_min = mut->current_owner_original_priority;
+
+for (i = 1; i < mut->queue_length; i++)
+{
+	// update maximum
+	if (Process[mut->queue[i]].pid < current_min)
+	{
+		current_min = Process[mut->queue[i]].pid;
+	}
+
+	// shuffle queue along
+	mut->queue[i - 1] = mut->queue[i];
+}
+
+// actually set the new priority
+Change_Priority(mut->owner, current_min);
+
+// and shorten the queue
+mut->queue_length--;
+
+// now unblock the waiting process
+if (Process[mut->owner].state == BLOCKED)
+{
+	Process[mut->owner].state = READY;
+}
+else if (Process[mut->owner].state == BLOCKED_SUSPENDED)
+{
+	Process[mut->owner].state = SUSPENDED;
+}
+else
+{
+	// ILLEGAL STATE, LOOP FOREVER
+	for (;;);
+}
+</code></pre>
+            </p>
+
             <h4>Events</h4>
-            <!-- Murray -->
+            <p>
+              An event is a two-state system, it is either signaled, or unsignaled. An event is acessed by three methods. Event_Init, Event_Wait, and Event_Signal. Event_Init zeros out the event structure and decrements the count of available events. The real work happens in Event_Wait and Event_Signal. There are only two cases for waiting on an event:
+              <ul style="padding-left:20px;">
+                 <li>The event is currently signaled. The kernel unsignals the event, and the call to Event_Wait returns immediatly.</li>
+                 <li>The event is currently unsignaled. The kernel marks the caller as the task waiting on the event (there can only be one) and blocks that task. The relevant code for this case follows:</li>
+              </ul>
+              <pre><code class="c++">if (evt->is_waiter) // if there already is a process waiting
+{
+	return; // no-op
+}
+else
+{
+	// set the current process as the waiter
+	evt->is_waiter = 1;
+	evt->waiting = Cp->pid;
+
+	// and block it
+	Process[evt->waiting].state = BLOCKED;
+}
+</code></pre>
+            </p>
+            <p>
+              There are only three cases for signalling an event:
+              <ul style="padding-left:20px;">
+                 <li>The event is already signalled. This is a no-op, as signalling is idempotent.</li>
+                 <li>The event is unsignaled, and there is no task waiting on the event. The kernel marks the event as signalled.</li>
+                 <li>The event is unsignaled, and there is a task waiting on the event. The kernel unmarks the task as waiting on this event, unblocks it, and leaves the event marked unsignaled. Note that if the task was previously suspended (i.e. it was in the BLOCKED_SUSPENDED state) it is still suspended, but no longer blocked. The relevant code for this case follows:</li>
+              </ul>
+              <pre><code class="c++">// wake up that process
+if (Process[evt->waiting].state == BLOCKED)
+{
+	Process[evt->waiting].state = READY;
+}
+else if (Process[evt->waiting].state == BLOCKED_SUSPENDED)
+{
+	Process[evt->waiting].state = SUSPENDED;
+}
+else
+{
+	// ILLEGAL STATE, LOOP FOREVER
+	for (;;);
+}
+
+// remove the waiter
+evt->is_waiter = 0;
+evt->waiting = 0;</code></pre>
+          </p>
             <h4>Testing and Profiling</h4>
 
-            
-            
+
+
 
 
             <div class="callout">
