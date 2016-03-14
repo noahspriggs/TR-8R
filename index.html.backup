@@ -1,0 +1,296 @@
+﻿<!doctype html>
+<html class="no-js" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TR-8R: CSC 460 Project</title>
+    <link rel="stylesheet" type="text/css" href="styles/style.css">
+    <link rel="stylesheet" type="text/css" href="styles/atelier-estuary-light.css">
+    <script src="styles/highlight.pack.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+
+</head>
+<body>
+
+    <!-- <div class="top-bar">
+    <div class="top-bar-left">
+    <ul class="menu">
+    <li class="menu-text">CSC 460 Project</li>
+
+    <li><a href="#">One</a></li>
+    <li><a href="#">Two</a></li>
+    <li><a href="#">Three</a></li>
+
+    </ul>
+    </div>
+    </div> -->
+
+    <div class="callout large primary">
+        <div class="row column text-center">
+            <img src="heading.png" width="530" height="300" />
+        </div>
+    </div>
+
+    <div class="row medium-8 large-7 columns">
+        <div class="blog-post">
+            <h3>CSC460 Project Phase 1 <small>2/4/2016</small></h3>
+            <!-- <img class="thumbnail" src="http://placehold.it/850x350"> -->
+            <hr />
+            <h4>Project Overview</h4>
+            <img src="system.png" style="height: 300px;" />
+            <p>
+                The TR-8R system is composed of two independand modules. The command module
+                and the actuator module, which communicate over bluetooth. The command module is
+                responsible for managing the joystick (with associated button) and the photoresistors.
+                The actuator module controls the servo motor and the laser based on commands from the
+                command module.
+            </p>
+            <hr />
+            <h4>Phase 1: Joystick, Servo and Laser</h4>
+            <p>
+                The purpose of the joystick in the project is to have it interact with the servo and laser. The servo rotates left and right based on the x position of the joystick, and the laser pointer is controlled by the push button included on the joystick.
+            </p>
+            <h5>Joystick specifications</h5>
+            <p>
+                The joystick has 3 leads excluding GND and 5V, these are VRX, VRY, and SW. The VR connectors output the current X and Y position of the joystick as an analog signal, and the SW connector outputs the state of the push button. The position leads were connected to inputs on our arduino A8 and A9 for X and Y respectively, and the button output to pin 44, as seen in figure X. Usually a pull-up resistor would be used with the button to avoid errors due to the open ended circuit when the button is released, however the arduino library includes the convenient pull-up:
+                <pre><code class="c++">pinMode(44,INPUT_PULLUP);</code></pre>
+                The button and joystick coordinates were read using the digitalRead and analogRead methods.
+            </p>
+            <h5>Servo control</h5>
+            <p>
+                The servo is controlled by using pulse width modulation (PWM), where a HIGH signal is transmitted for 500-2500 &micro;s every 20-30 ms. Sending 500 &micro;s pulses positions the servo to the far left, and 2500 &micro;s, the far right. The servo motors are somewhat delicate, so it is important to never send pulses that exceed that range. Additionally, due to the noise and lack of steadiness in controlling the joystick, it is useful to apply some smoothing to the desired position of the joystick in order to reduce jitter. We used exponentially weighted moving average (EWMA) with a weight of 0.9. <br>
+
+                Before connecting the servo to our desired output pin, we tested to make sure that the signals being sent were indeed adhering to how PWM should work. For this we used a logic analyzer, the expected output is shown below. <br />
+                An example of the minimum pulse width we expect given our conditions, this was captured with the joystick at the far left:
+                <img src="minpulse.png" /><br />
+                An example of the maximum pulse width we expect give (joystick far right):
+                 <img src="maxpulse.png" /><br />
+                As an additional precaution we put a manual limit on the pulse size, the final servo control code is seen below:
+               
+                <pre><code class="c++">joyStickX = (joystickX * weight) + ((1.0f - weight) * analogRead(joyPinX));
+servoPos = joyStickX+988;
+if(!(pos < 600 || pos > 2400)) {
+	myservo.writeMicroseconds(pos);  
+} 
+delay(20);</code></pre>
+
+            </p>
+            <h5>Laser pointer control</h5>
+            <p>
+                To control the laser pointer we simply read from the joystick button using the method described above, and output it to the laser pointer via pin 42.
+            </p>
+            <hr />
+            <h4>Phase 1: Light-sensing and LCD (Feedback)</h4>
+            <h5>Light-sensing</h5>
+            <p>
+                <table style="border-width: 0px; border-color: white;">
+                    <tbody style="border-width: 0px;">
+                        <tr>
+                            <td>
+                                <img src="photoresistors.png" width="317" height="519" style="width: 550px;" />
+                            </td>
+                            <td style="vertical-align: top;">
+                                Photoresistors are resistors than change resistance based on their explosure to light. In this project the photoresistors job is to detect if TR-8R has been hit by the laser or not. The resistors need to vary the voltage approximately within the range of 0-5V to be read easily by the analogue inputs on the Audrino, so an aditional 10k&#x2126 resistor is required. We use multiple photoresistors in parallel to reduce the variance in readings. We also cluster the heads of the photoresistors together so that the laser can hit multiple photoresistors at the same time (see below image). Exponentially weighted moving average is used to smooth the inputs so that noise has less of an effect on the light/no-light reading.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </p>
+            <p>
+                <table style="border-width: 0px; border-color: white;">
+                    <tbody style="border-width: 0px;">
+                        <tr>
+                            <td>
+                                <img class="thumbnail" src="photoresistorsactual.png" alt="Clustered photoresistors" style="width: 300px;" />
+                            </td>
+                            <td style="vertical-align: top;">
+                                <pre><code class="c++">weightedLightValue = (weightedLightValue*lightWeight) + ((1.0f - lightWeight) * 
+                                analogRead(lightPin)); 
+  
+lcd.setCursor(0,1);
+lcd.print("LIGHT?");
+lcd.print((weightedLightValue < 250 ? "NO " : "YES"));</code>
+                        </pre>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </p>
+            <h5>LCD</h5>
+            <p>
+                The LCD display informs the user if the photoresistors have detected the laser, and if the button on the Joystick is depressed. The LCD is updated immediatly when new data arrives from the photoresistors or the joystick button, rather that having a separate update cycle.
+            </p>
+            <img class="thumbnail" src="lcd.png" style="height: 200px;" alt="LCD" />
+            <hr />
+            <h4>Phase 2: System Overview with Time-Triggered Scheduler</h4>
+            <p>
+                Phase 2 introduces the need to communicate between bluetooth radios. In order to accomplish this, our code had to be transformed to use a time-triggered architecture. We used the set up recommended by the professor available <a href="http://nrqm.ca/mechatronics-lab-guide/lab-guide-time-triggered-scheduling/">here</a>. The ability to schedule tasks to only run on certain invervals allows for synchronization between the devices. <br />
+                The way the scheduler works is documented at the URL provided, but a brief overview is included here too. The scheduler must be initialized using Scheduler_Init(), followed by passing each task as a callback into the Scheduler_StartTask method, along with the initial delay (ms from the start of each cycle to run), and the period (how often to run the task).
+                Note: scheduler.cpp was giving us errors, especially with the millis() method, but this was fixed by renaming it to scheduler.ino
+            </p>
+            <hr />
+            <h4>Phase 2: Bluetooth Radio Interfacing and Integration</h4>
+            <h5>Pairing</h5>
+            <p>
+                The bluetooth modules behave like a wireless UART port. The lack of a wire means that each modules needs another way to identify who to communicate with, as there could be several different systems using bluetooth in range. The process of attaching modules to eachother wirelessly is called <i>pairing</i>, and involves a master device and a slave device. It doens't matter which module is the master and which is the slave, becuase, once paired, they behave identially. Since the bluetooth modules act as UART ports, you can wire them as a loopback and configure them interactively. Using the Audrino as a passthrough, we connected a terminal to each bluetooth module and set each modules PIN to the same value (using the AT+PIN command) and one to master, one to slave (using the AT+ROLE command). After letting the modules discharge for 30 minutes, the pairing is complete. Now the modules can be wired as if they were the other audrino board's UART ports, and, once powered, will connect to each other automatically. For more information, see the HC-06 Configuration Guide.
+            </p>
+            <h5>Command module</h5>
+            <img src="commandmdl.png" />
+            <p>
+                The command module is responsible for sending the state of the joystick and the state of the button to the actuator module. If we alternated sending the laser signal and the servo signal, the servo behaved slightly more jittery, this way allowed us to have the smoothest motion possible. We sent both these states in each byte of UART content. This allows us to send only a single byte every 20ms. The 7 high bits of each byte are the current value of the joystick axis we are using. 128 values are easily enough to smoothly cover the joystick range, and the discretization actually helps reduce jitter. The lowest bit is set when the button is up, and becomes to zero when the button is depressed. The code for the command module can be seen below.
+            </p><!--<pre><code class="c++">int bluetoothSend = joystickSendValue * 2 + isButtonUp; 
+Serial1.write(bluetoothSend);</code></pre>-->
+            <pre><code>#include &lt;LiquidCrystal.h&gt;
+#include "scheduler.h"
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+int joystickUnused = 8;                 
+int joystickActiveAxis = 9;                
+int buttonPin = 41;
+int lightPin = 13;
+
+int weightedJoystickValue = 512;                  
+float joystickWeight = 0.9f;
+float lightWeight = 0.9f;
+int weightedLightValue = 0;
+int isButtonUp = 1;
+int joystickSendValue = 64;
+
+void read_button_task() {
+  lcd.setCursor(0,0);
+  int pinValue = digitalRead(buttonPin);
+  
+  if(pinValue < 1 && isButtonUp == 1) {
+    isButtonUp = 0;
+  } else if(pinValue > 0 && isButtonUp == 0) {
+    isButtonUp = 1;
+  }  
+  
+  if(isButtonUp) {
+    lcd.print("BTN:UP");
+  } else {
+    lcd.print("BTN:DN");
+  }
+}
+void read_joystick_task() {
+  weightedJoystickValue = (weightedJoystickValue * joystickWeight) + ((1.0f - joystickWeight) * analogRead(joystickActiveAxis));   
+  
+  joystickSendValue = weightedJoystickValue / 8;
+  if(joystickSendValue > 127) { joystickSendValue = 127; }
+  if(joystickSendValue < 0) { joystickSendValue = 0; }
+}
+void send_bluetooth_task() {
+  int bluetoothSend = joystickSendValue * 2 + isButtonUp;
+  
+  Serial1.write(bluetoothSend);
+}
+void read_light_task() {
+  weightedLightValue = (weightedLightValue*lightWeight) + ((1.0f - lightWeight) * analogRead(lightPin)); 
+  
+  lcd.setCursor(0,1);
+  lcd.print("LIGHT?");
+  lcd.print((weightedLightValue < 250 ? "NO " : "YES"));
+}
+  
+void setup() {
+  lcd.begin(16, 2);              
+  lcd.setCursor(0,0);
+  Serial1.begin(9600);
+  
+  pinMode(buttonPin, INPUT_PULLUP);
+  
+  Scheduler_Init();
+  
+  Scheduler_StartTask(0, 20, read_button_task);   
+  Scheduler_StartTask(5, 20, read_joystick_task);  
+  Scheduler_StartTask(10, 20, send_bluetooth_task);
+  Scheduler_StartTask(15, 20, read_light_task);
+}
+void loop() {
+  uint32_t idle_period = Scheduler_Dispatch();
+  if (idle_period)
+  {
+    delay(idle_period);
+  }   
+}
+</code></pre>
+            <br/>
+            <h5>Actuator module</h5>
+            <img src="actuatormdl.png" />
+            	The actuator module handles output from the command module and conveys the recieved information to the servo and lase pointer. Each cycle, the first bit of the recieved data is read and used to set the laser pointer, high or low. Then the remaining 7 bits are used to send a signal to the servo, again using PWM. The shift from phase 1 to phase 2 for these components was relatively smooth, the move servo and set light code segments were moved into their own functions so they could be activated as tasks, and a new method was created to read from the serial port that the bluetooth is outputting to. This code can be seen below.
+            	<pre><code>#include "scheduler.h"
+#include &lt;Servo.h&gt;
+ 
+int serialInput;
+int servoPin = 40;
+int laserPin = 42;
+Servo myservo;
+
+void readSerial()
+{
+  if(Serial1.available()) {
+    serialInput = Serial1.read();
+  }
+}
+
+void controlHW()
+{
+  if (serialInput % 2 == 0) {
+    digitalWrite(42,HIGH);  
+  } else {
+    digitalWrite(42,LOW);  
+  }
+  int pos = (serialInput/2)*14 + 600;
+  if(!(pos < 600 || pos > 2400)) {
+    myservo.writeMicroseconds(pos);  
+  }  
+}
+
+void setup()
+{
+  pinMode(laserPin,OUTPUT);
+  pinMode(servoPin,OUTPUT);
+  Serial.begin(9600);
+  Serial1.begin(9600);
+  myservo.attach(servoPin);
+ 
+  Scheduler_Init();
+  Scheduler_StartTask(0, 20, readSerial);
+  Scheduler_StartTask(5, 20, controlHW);
+}
+ 
+void loop()
+{
+  uint32_t idle_period = Scheduler_Dispatch();
+  if (idle_period)
+  {
+    delay(idle_period);
+  }
+}</code></pre>
+            </p>
+            <hr />
+            <h4>Phase 2: Testing Results</h4>
+            <p>
+            	The final result of this project was two seperate components that were able to interact 
+            	with eachother wirelessly. The photoresistors successfully percieved the laser pointer light when targetted directly. In order to increase the size of the target and simplify ranged aiming a dish could be added and 
+            	the light threshold reduced, but we decided to keep the setup simple until we near the final robot construction. 
+            	The range of the bluetooth devices spanned approximately 20-25m, lower when any obstacles were present. When both components were within 10m of each other there was no noticable inteference. Experimentation with different weights for the EWMA of the servo and the photoresistors found that there was some jitter in the results when using low weights (0.5-0.7), and that using high weights (0.95+) introduced noticable latency in the responsiveness of the devices. A weight of 0.9 produced smooth and responsive results.
+            </p>
+            <div class="callout">
+                <ul class="menu simple">
+                    <li>Authors: Noah Spriggs, Murray Dunne</li>
+                </ul>
+            </div>
+        </div>
+
+
+
+    </div>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="http://dhbhdrzi4tiry.cloudfront.net/cdn/sites/foundation.js"></script>
+    <script>
+        $(document).foundation();
+    </script>
+</body>
+</html>
