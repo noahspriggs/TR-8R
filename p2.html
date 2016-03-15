@@ -47,52 +47,89 @@
             <hr />
             <h4>Project Overview</h4>
             <p>
-
+              In this projet we implemented a priority-based RTOS with preemptive multithreading. It implements mutexes, events, suspend/resume and sleeping with a simple highest-priority-wins scheduler.
             </p>
-
             <hr />
             <h4>Booting and Context-Switching</h4>
             <p>
               <h5>Initialization</h5>
-              The system begins 
-              <h5>Context-Switching</h5>
-              <h5>Main Loop</h5>
-                The main loop of the kernel is entered every time a task makes a kernel call, the list of kernel calls is below:
-                <ul style="padding-left:20px;">
-                <li>Task_Create( void (*f)(int), PRIORITY py, int arg)</li>
-                <li>Task_Terminate(void);</li>
-                <li>Task_Yield(void)</li>
-                <li>Task_GetArg(void)</li>
-                <li>Task_Suspend( PID p )</li>          
-                <li>Task_Resume( PID p )</li>
-
-                <li>Task_Sleep(TICK t)</li>
-
-                <li>Mutex_Init(void)</li>
-
-                <li>Mutex_Lock(MUTEX m)</li>
-
-                <li>Mutex_Unlock(MUTEX m)</li>
-
-
-                <li>Event_Init(void)</li>
-
-                <li>Event_Wait(EVENT e)</li>
-
-                <li>Event_Signal(EVENT e)</li>
-                </ul>
-                Each kernel call has a request flag associated with it, when called by a task,the task sets its request appropriately then enters the kernel. The kernel sees the flag, processes the request, then activates the scheduler to schedule the next task. Along with the flag, any parameters the task wishes to pass must be stored using the task's passthrough parameter. 
+              The system begins by zeroing out the scheduling and task storage and setting the counts of all kernel objects to zero. After initialization, the main loop starts. It is divided into scheduling, context-switching, and request handling.
             </p>
+            <p>
+              <h5>Scheduling</h5>
+              The scheduler is simple. It selects the highest priority task in the ready state. If there are multiple ready tasks at the same priortity they are run in round robin order. This is maintained in the RunList array, which keeps track of the round robin at each iteration. The Dispatch function is responsible for this scheduling and is reproduced below:
+            </p>
+              <pre><code class="c++">static int Dispatch()
+{
+  int breaker = 0;
+
+  //for each priority, starting from highest
+  for(int i = 0; i < MINPRIORITY;i++) {
+    //check each element, if one is found ready, the use it
+    for(int j = 0; j < PriorityCounts[i]; j++) {
+      if (Process[RunList[i][0]].state == READY) {
+
+        Cp = &(Process[RunList[i][0]]);
+        breaker = 1;
+        break;
+      }
+
+      NextP(i); // rotate through this priority
+    }
+    if(breaker) break;
+    if (i == MINPRIORITY-1) {
+      return 0;
+    }
+  }
+
+  CurrentSp = Cp->sp;
+  Cp->state = RUNNING;
+
+  NextP(Cp->priority); // rotate through this priority
+  return 1;
+}
+</code></pre>
+
+              <p>
+                <h5>Context-Switching</h5>
+                Context switching is done in assembly. To switch into the kernel, the contents of the user function's registers are pushed onto the user's stack, then the stack pointer is changed to the kernel stack and the kernel's registers are restored. When exiting the kernel, the reverse (store the kernel registers, switch to scheduled user task's stack, restore user resgiters) happens.
+              </p>
+
+              <p>
+              <h5>Request Handling</h5>
+                When context-switching ends, the main loop of the kernel resumes dues to a task making a kernel call. The list of kernel calls is below:
+              </p>
+                <ul style="padding-left:20px;font-family:monospace;">
+                  <li>PID Task_Create( void (*f)(int), PRIORITY py, int arg)</li>
+                  <li>void Task_Terminate(void);</li>
+                  <li>void Task_Yield(void)</li>
+                  <li>int Task_GetArg(void)</li>
+                  <li>void Task_Suspend( PID p )</li>
+                  <li>void Task_Resume( PID p )</li>
+                  <li>void Task_Sleep(TICK t)</li>
+                  <li>MUTEX Mutex_Init(void)</li>
+                  <li>void Mutex_Lock(MUTEX m)</li>
+                  <li>void Mutex_Unlock(MUTEX m)</li>
+                  <li>EVENT Event_Init(void)</li>
+                  <li>void Event_Wait(EVENT e)</li>
+                  <li>void Event_Signal(EVENT e)</li>
+                </ul>
+            <p>
+                Each kernel call has a request flag associated with it, when called by a task, the task sets its request flag appropriately then enters the kernel. The kernel sees the flag, processes the request by calling the kernel function that maps to that flag, then loops back to the scheduler to schedule the next task. Along with the flag, any parameters the task wishes to pass must be stored using the task's passthrough parameter.
+            </p>
+            <hr/>
             <h4>Priority-based Scheduling</h4>
             <!-- Noah -->
             <p>
-               We switch between tasks using a priority based scheduler, where the highest priority task is run as much as possible. Apart from priority, tasks also have states which influence the schedulers decision on which task to run next. A finite state machine is shown below illustrating the possible state transitions.<br/>
+               We switch between tasks using a priority based scheduler, where the highest priority task is run as much as possible. Apart from priority, tasks also have states which influence the schedulers decision on which task to run next. A finite state machine is shown below illustrating the possible state transitions.
+             </p>
               <img src="taskfsm.png"/>
 
-
+              <p>
                The design allows the user to specify a number of priorities (MINPRIORITY) to enable, with 0 being the highest priority and MINPRIORTY-1 being the lowest. A priority queue is kept for each priority. When the scheduler is called, the current task is placed at the back of its queue. The scheduler then observes every element in each queue traversing the queues in order of priority until it finds a task in the READY state. If no ready task is found, a dummy task is always enabled at the lowest priority which causes the scheduler to loop and recheck for ready states infinitely.<br/>
-               The code for selecting the next task can be seen below, where NextP(i) sends the current element at the front the queue for priority i to the back.  
-
+               The code for selecting the next task can be seen below, where NextP(i) sends the current element at the front the queue for priority i to the back.
+             </p>
+             <p>
                <pre><code class="c++">for(int i = 0; i < MINPRIORITY;i++) {
   for(int j = 0; j < PriorityCounts[i]; j++) {
     if (Process[RunList[i][0]].state == READY) {
@@ -106,119 +143,161 @@
   if (i == MINPRIORITY-1) {
     return 0;
   }
-}</code></pre>
-
+}</code></pre></p>
+              <p>
                The scheduler must be called willingly by a task inorder for other tasks to run. Note that any time a lower priority task makes a call to the kernel, it counts as calling the scheduler and it will be pre-empted by any task of equal or higher priority, even if it is trying to suspend another task or unlock a mutex. This is done in order to ensure that the highest priority task will be running as much as possible. Alternatively, if we wanted to allow tasks to enter the kernel without explicitly calling Task_Yield(), the dispatch call would only be made if the kernel request was NEXT, instead of every time the kernel is entered.
 
 
             </p>
-            <h4>Task Suspension/Resumption/Sleeping</h4>
+            <h4>Task Suspension/Resumption/Sleeping</h4><p>
             <h5>Suspension</h5>
               When a task is suspended it can not be scheduled until another task resumes it. In order to accomplish this behaviour, all the kernel needs to do is follow the state machine above. For example if a task is resumed while it is blocking or sleeping, it must go back to those states, otherwise it will go back to the ready state.
-            <h5>Sleeping</h5>
-              Sleeping is very similar to suspension with the additional complication of waking up automatically, as opposed to the wakeup being triggered by another task. This is done using timers. A timer ISR is scheduled in initialization to go off every 10ms. When a task calls sleep it passes the number of timer ticks T as a minimum sleep duration. The kernel call for this is relatively simple, we set the duration of the sleep to T+1 to account for calling sleep in between timer ticks. For example, if a task calls Task_Sleep(10) half way in between timer ticks, it should wake up after 10.5 ticks, not 9.5.
+            </p><p><h5>Sleeping</h5>
+              Sleeping is very similar to suspension with the additional complication of waking up automatically, as opposed to the wakeup being triggered by another task. This is done using timers. A timer ISR is scheduled in initialization to go off every 10ms. When a task calls sleep it passes the number of timer ticks T as a minimum sleep duration. The kernel call for this is relatively simple, we set the duration of the sleep to T+1 to account for calling sleep in between timer ticks. For example, if a task calls Task_Sleep(10) half way in between timer ticks, it should wake up after 10.5 ticks, not 9.5.</p><p>
               <pre><code class="c++">void Kernel_Task_Sleep(TICK t) {
   WakeUpTime[Cp->pid] = t+1;
   Cp->state = SLEEPING;
-}</code></pre>
-              The timer ISR must decrement every non-zero task sleep time and wake up the tasks whose sleep time has expired. As can be seen below, the timer also follows the task state machine when waking up tasks.
+}</code></pre></p><p>
+              The timer ISR must decrement every non-zero task sleep time and wake up the tasks whose sleep time has expired. As can be seen below, the timer also follows the task state machine when waking up tasks.</p>
             <pre><code class="c++">ISR(TIMER3_COMPA_vect) {
   for(int i = 0; i<MAXTHREAD;i++) {
     if(WakeUpTime[i]>1) {
-    WakeUpTime[i]--;    
+    WakeUpTime[i]--;
   } else if (WakeUpTime[i] == 1) {
     WakeUpTime[i] = 0;
     if(Process[i].state == SLEEPING_SUSPENDED) {
-      Process[i].state = SUSPENDED;  
+      Process[i].state = SUSPENDED;
     } else {
-      Process[i].state = READY;  
+      Process[i].state = READY;
     }
   }
 }</code></pre>
+            <hr/>
             <h4>Mutexes and Priority Inheritance</h4>
             <p>
-              Priority inheritance is the process by which a lower priority task that has control of a mutex is promoted to the priortiy of the highest waiting task on that mutex. This is done becuase of the priority inversion problem whereby a lower priority task has a mutex, which a higher priority task wants, can be interrupted indefinitely by a medium priority task, never letting the high priortiy task run. We resolve this by searching the queue and the current owning task for a new highest priortiy to assign the current owning task whenever a task is added or removed from the queue.
+              Priority inheritance is the process by which a lower priority task that has control of a mutex is promoted to the priortiy of the highest waiting task on that mutex. This can be chained if a task owns multiple locks. This is done becuase of the priority inversion problem whereby a lower priority task that has a mutex, which a higher priority task wants, can be interrupted indefinitely by a medium priority task, never letting the high priortiy task run. We resolve this by searching the queue and the current owning task for a new highest priortiy to assign the current owning task whenever a task is added or removed from the queue. We also store a chain of which priorities were inherted from which locks to allow priority inheritance to work in the presence of multiple locks.
             </p>
             <p>
               A mutex is acessed by three methods. Mutex_Init, Mutex_Lock, and Mutex_Unlock. Mutex_Init simply zeros out the mutex structure and decrements the count of available mutexes. The real work happens in Mutex_Lock and Mutex_Unlock. There are three cases for locking a mutex.
               <ul style="padding-left:20px;">
                  <li>The mutex is currently available. The kernel sets the current task as the owner of the mutex, sets the mutex lock count to one, and records the original priority of the owning task.</li>
                  <li>The mutex is already locked by the current task. The kernel simply increments the locked count of the mutex.</li>
-                 <li>The mutex is locked by another task. This is the most complicated case. The current task is appended to the wait queue, and the task that currently owns the mutex is promoted to the highest priority between itself and all tasks in the queue. This neatly implements <i><b>priority inheritance</b></i>, without worrying about storing a chain of inherited priorities. The current task is then blocked. The relevant code for this case follows:</li>
+                 <li>The mutex is locked by another task. This is the most complicated case. The current task is appended to the wait queue, and the task that currently owns the mutex is promoted to the highest priority between itself and all tasks in the queue. This mutex is noted as causing this <i><b>priority inheritance</b></i>, and the thread whose priorty is inherited is also stored. When multiple mutexes are locked by the same thread, this causes a chain of <i><b>priority inheritance</b></i>. The current task is then blocked. The relevant code for this case follows:</li>
               </ul>
               <pre><code class="c++">// add current process to end of queue
 mut->queue[mut->queue_length] = Cp->pid;
 mut->queue_length++;
 
-// promote the process with the lock to the highest priority in the queue
-// or it's original priority, whichever is higher
-PRIORITY current_min = mut->current_owner_original_priority;
+PID highest_priority_waiting_task = mut->owner;
+PRIORITY current_min = Process[mut->owner].priority;
 for (i = 0; i < mut->queue_length; i++)
 {
-	if (Process[mut->queue[i]].pid < current_min)
-	{
-		current_min = Process[mut->queue[i]].pid;
-	}
+  if (Process[mut->queue[i]].priority < current_min)
+  {
+    highest_priority_waiting_task = mut->queue[i];
+
+    current_min = Process[mut->queue[i]].priority;
+  }
 }
 
-// actually set the new priority
-Change_Priority(mut->owner, current_min);
+if (highest_priority_waiting_task != mut->owner)
+{
+  parent[mut->owner] = highest_priority_waiting_task;
+  reverse_parent[highest_priority_waiting_task] = mut->owner;
+  parent_reason[mut->owner] = m;
+}
+
+PID parent_follow = highest_priority_waiting_task;
+while (reverse_parent[parent_follow] != -1) { //has children
+  // actually set the new priority
+
+  Change_Priority(reverse_parent[parent_follow], Process[parent_follow].priority);
+
+  parent_follow = reverse_parent[parent_follow];
+}
 
 // now block the current process
-Cp->state = BLOCKED;
-</code></pre>
+Cp->state = BLOCKED;</code></pre>
             </p>
             <p>Similarily, there are three cases for unlocking a mutex. We do not consider the case where a task unlocks a mutex is does not own, that is undefined behaviour.
               <ul style="padding-left:20px;">
                 <li>This task has previously locked the mutex multiple times, and has not yet unlocked it that many times. The kernel simply decrements the locked count of the mutex.</li>
                 <li>This unlock call will bring the locked count from one to zero and there are no tasks waiting in the queue. The kernel sets the locked count to zero and sets the owner to nobody.</li>
-                <li>This unlock call will bring the locked count from one to zero and there are tasks waiting in the queue. This is the most complicated case. The kernel first restores the old owner to its original priortiy, and removes it as owner of the mutex. The kernel then takes the first task from the queue, and sets it as the owner of the mutex, sets the mutexes locked count to zero, and records the original priortiy of the new owner. It then shuffles the queue along (as the first spot is now empty) and the new owner is promoted to the highest priority between itself and all tasks in the queue. Now if the new owner was previously suspended while blocking on this mutex (i.e. it was in the BLOCKED_SUSPENDED state) it is still suspended, but no longer blocked. If the new owner was not suspended, then is is now ready to be scheduled. The relevant code for this case follows:</li>
+                <li>This unlock call will bring the locked count from one to zero and there are tasks waiting in the queue. This is the most complicated case. The kernel restores the old owner to its original priortiy (if it was not promoted because of a different mutex), and removes it as owner of the mutex. The kernel then takes the first task from the queue, and sets it as the owner of the mutex, sets the mutexes locked count to zero, and records the original priortiy of the new owner. It then shuffles the queue along (as the first spot is now empty) and the new owner is promoted to the highest priority between itself and all tasks in the queue. This mutex is noted as causing this <i><b>priority inheritance</b></i>, and the thread whose priorty is inherited is also stored. When multiple mutexes are locked by the same thread, this causes a chain of <i><b>priority inheritance</b></i>. Now if the new owner was previously suspended while blocking on this mutex (i.e. it was in the BLOCKED_SUSPENDED state) it is still suspended, but no longer blocked. If the new owner was not suspended, then is is now ready to be scheduled. The relevant code for this case follows:</li>
               </ul>
-              <pre><code class="c++">// take the first member off the queue
-mut->owner = mut->queue[0];
-mut->locked = 1;
-mut->current_owner_original_priority = Process[mut->owner].priority;
-
-// shuffle the queue along (and keep note of the max priortiy) becuase we need
-// to promote the process with the lock to the highest priority in the queue
-// or it's original priority, whichever is higher
-PRIORITY current_min = mut->current_owner_original_priority;
-
-for (i = 1; i < mut->queue_length; i++)
+              <pre><code class="c++">if (parent_reason[Cp->pid] == m)
 {
-	// update maximum
-	if (Process[mut->queue[i]].pid < current_min)
-	{
-		current_min = Process[mut->queue[i]].pid;
-	}
+  // set the current tasks priority to its original priority
 
-	// shuffle queue along
-	mut->queue[i - 1] = mut->queue[i];
+  Change_Priority(Cp->pid, mut->current_owner_original_priority);
+
+
+
+  parent_reason[Cp->pid] = -1;
+  reverse_parent[parent[Cp->pid]] = -1;
+  parent[Cp->pid] = -1;
 }
 
-// actually set the new priority
-Change_Priority(mut->owner, current_min);
+// is there someone waiting in the queue?
+if (mut->queue_length > 0)
+{
 
-// and shorten the queue
-mut->queue_length--;
+  // take the first member off the queue
+  mut->owner = mut->queue[0];
+  mut->locked = 1;
+  mut->current_owner_original_priority = Process[mut->owner].priority;
 
-// now unblock the waiting process
-if (Process[mut->owner].state == BLOCKED)
-{
-	Process[mut->owner].state = READY;
-}
-else if (Process[mut->owner].state == BLOCKED_SUSPENDED)
-{
-	Process[mut->owner].state = SUSPENDED;
-}
-else
-{
-	// ILLEGAL STATE, LOOP FOREVER
-	for (;;);
-}
+  PID highest_priority_waiting_task = mut->owner;
+
+  PRIORITY current_min = mut->current_owner_original_priority;
+  for (i = 1; i < mut->queue_length; i++)
+  {
+    if (Process[mut->queue[i]].priority < current_min)
+    {
+      highest_priority_waiting_task = mut->queue[i];
+      current_min = Process[mut->queue[i]].priority;
+    }
+
+    mut->queue[i - 1] = mut->queue[i];
+  }
+
+  // and shorten the queue
+  mut->queue_length--;
+
+  if (highest_priority_waiting_task != mut->owner)
+  {
+    parent[mut->owner] = highest_priority_waiting_task;
+    reverse_parent[highest_priority_waiting_task] = mut->owner;
+    parent_reason[mut->owner] = m;
+  }
+
+  PID parent_follow = highest_priority_waiting_task;
+  while (reverse_parent[parent_follow] != -1) { //has children
+    // actually set the new priority
+
+    Change_Priority(reverse_parent[parent_follow], Process[parent_follow].priority);
+
+    parent_follow = reverse_parent[parent_follow];
+  }
+
+  // now unblock the waiting process
+  if (Process[mut->owner].state == BLOCKED)
+  {
+    Process[mut->owner].state = READY;
+  }
+  else if (Process[mut->owner].state == BLOCKED_SUSPENDED)
+  {
+    Process[mut->owner].state = SUSPENDED;
+  }
+  else
+  {
+    // ILLEGAL STATE, LOOP FOREVER
+    for (;;);
+  }
 </code></pre>
             </p>
 
+                        <hr/>
             <h4>Events</h4>
             <p>
               An event is a two-state system, it is either signaled, or unsignaled. An event is acessed by three methods. Event_Init, Event_Wait, and Event_Signal. Event_Init zeros out the event structure and decrements the count of available events. The real work happens in Event_Wait and Event_Signal. There are only two cases for waiting on an event:
@@ -267,6 +346,7 @@ else
 evt->is_waiter = 0;
 evt->waiting = 0;</code></pre>
           </p>
+                      <hr/>
             <h4>Testing and Profiling</h4>
 
 
