@@ -268,7 +268,22 @@ evt->is_waiter = 0;
 evt->waiting = 0;</code></pre>
           </p>
             <h4>Testing and Profiling</h4>
-
+            <p>
+              In order to test our code we had to cover certain edge cases, as well as validate the main functionality. The tests were executed using a logic analyzer to keep track of the tasks, context switching time, and timer interrupts. We wrote a test case template that implemented a_main() and provided basic pin I/O commands for easy access.<br/>
+              <h5>Simple tests</h5>
+              For tests such as sleeping, suspending, and basic events, we used one or two tasks and a timer to keep track of the ticks. To test sleep we made sure that the number of ticks between the sleep call and the wakeup call was always greater than the desired count, due to slight context switching delays. For suspension and events we used two tasks that interacted with eachother and confirmed the behaviour was expected. We also tested locking a mutex more than once by the same task.<br/>
+              <h5>Complex tests</h5>
+              These are more specific tests that test edge cases and more complicated features of the program.<br/>
+              <h6>Test 1/2</h6>
+              Test 1 covers single depth priority inheritance. If task 3 does not inherit task 1's priority when task 1 tries to acquire its lock, then after task 2 signals, task 2 will continue running and task 1 will never be able to run. Test 2 covers a similar case using suspend instead of wait, we got the exact same output.<br/>
+            <img src="test1.png"/>
+            <h6>Test 3</h6>
+              Test 3 tests nested priority inheritance, after task 3 inherits task 2's priority, it must also inherit task 1's priority from task 2 when task 2 is incremented. Additionally, we must ensure that if an upgraded task unlocks a mutex that it was not upgraded for having, (i.e. it still has another mutex that a higher priority task wants) it should not go back to its original priority.
+            <img src="test3.png"/>
+            <h6>Test 4</h6>
+            Test 4 ensures that higher priority tasks can be switched to successfully by a timer making a kernel call as opposed to a lower priority task.
+            <img src="test4.png"/>
+            </p>
 
 
 
