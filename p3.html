@@ -56,7 +56,6 @@
             </p>
               <b>Overview</b>
             <p>
-              <h6>Initialization</h6>
               The command module consists of a joystick and bluetooth transmitter. These allow the user to remotely control the Roomba.
             </p>
 
@@ -165,11 +164,12 @@ return retval;</code></pre><br/>
                     <tbody style="border-width: 0px;">
                         <tr>
                             <td>
-                                <img src="photoresistorcup.png" />
+                                <img style="min-width: 300px; max-width: 400px;" src="photoresistorcup.png" />
                             </td>
                             <td style="vertical-align: top;">
                                 <pre><code class="c++">float weight = 0.5;
-lightval = (int)(((float)lightval * weight) + ((float)ReadADC(0)*1-weight));
+lightval = (int)(((float)lightval * weight) +
+  ((float)ReadADC(0)*1-weight));
 
 int threshold = 30;
 
@@ -186,7 +186,7 @@ if (lightval > threshold) {
               <br/>
                <b>Main Loop</b>
             <p>
-               The main loop first checks if the dead flag has been set. If it has, then we have been hit by a laser at some point in the past, and should do nothing; otherwise the loop continues normally. After a short delay, we read the latest command from the command module and extract the bits representing the velocity, radius, and if the laser should be fired. The laser pin is set if it should be fired, and the DRIVE command is sent to the Roomba with the values from the command. The sensors are checked to see if we hit a physical wall or a virtual wall and if they are we back up for half a second. Lastly, the photoresistors are checked to see if we were hit and the dead flag is set if we were.
+               The main loop first checks if the dead flag has been set. If it has, then we have been hit by a laser at some point in the past, and should do nothing; otherwise the loop continues normally. After a short delay, we read the latest command from the command module over bluetooth from the UART and extract the bits representing the velocity, radius, and if the laser should be fired. The laser pin is set if it should be fired, and the DRIVE command is sent to the Roomba with the values from the command. The sensors are checked to see if we hit a physical wall or a virtual wall and if they are we back up for half a second. Lastly, the photoresistors are checked to see if we were hit and the dead flag is set if we were.
             </p>
                <b>PWM</b>
             </p>
@@ -202,17 +202,32 @@ if (lightval > threshold) {
             <h4>Phase 2</h4>
               <h5>Command module</h5>
             <p>
-              For Phase 2, we implemented an autonomous AI with deterministic bounded random movement. Every
+              For Phase 2, we implemented an autonomous AI with bounded pseudorandom movement. Every 2.4 seconds, the command module selected a random forward velocity and a radius from the set of transimittable values (as outlined in the control section in Phase 1). These are transmitted to the actiator module. The actuator module itself takes control when a wall is detected so the command module does not have to consider the presence of walls. The autonomous behaviour is enabled by a switch. When the switch is open, the command module sends command from the joystick to the Roomba; when the switch is closed, the autonomous behaviour is used.
             </p>
             <p>
+              This behaviour results is suprisingly consistent movement. The roomba proceeds in a direction while juking from side to side and ocassionally stopping to surprise opponents. When it encounters a wall, it reverses and rotates, before proceeding in the new direction as before. We experimented with more complex behavours, such as remembering walls and predicting our location, but found these were too error prone. Pseudorandom pathing yielded the best movement patterns.
+            </p>
               <h5>Actuator Module</h5>
-
+              <p>
+                The actuator module is unaware if the system is operating autonomously or at the direction of a human. That behaviour is restricted to the command module and allows the actuator module to remain simple.
               </p>
 
+            <h4>Testing</h4>
+            <h5>Walls</h5>
+            <p>
+              The most difficult behaviour to debug was the robot's response to walls. The first behaviour we tried was to simply send a DRIVE command to the Roomba in the reverse direction when a wall was detected. At first this failed because a new command from the command module would immediatly override the reverse DRIVE command, causing a strange stuttering motion. After adding a delay to stop the overriding, this still didn't work because the roomba would just immediartly drive forward into the wall again.
+            </p>
+            <p>
+              We then tried rotating 90 degrees when we hit a wall. This failed because the bumper or virtual wall detector would still detect the presence of the wall, as the Roomba was still adjacent to it, resulting in the roomba spinning on the spot infinitley. We finally setteled on a combination of the two where the Roomba resverses and turns 90 degress. This allowed it to get away from the wall and resume normal travel.
+            </p>
+            <p>
+              The weakness of the virtual wall detector becomes aparent when the abouve behavoir is used. Because we can only detect if there is or is not a virtual wall, if the Roomba is reversed into the wall it will then reverse and turn through the wall and escape.
+            </p>
 
             <h4>Source Code</h4>
             <p>
-              <a href="task.zip">Download source code</a>
+              <a href="task.zip">Download command module source code</a><br/>
+              <a href="roombatask.zip">Download actuator module source code</a>
             </p>
 
             <div class="callout">
