@@ -47,7 +47,7 @@
             <hr />
             <h4>Project Overview</h4>
             <p>
-              
+
             </p>
             <hr />
             <h4>Phase 1</h4>
@@ -56,45 +56,128 @@
             </p>
             <p>
               <h6>Initialization</h6>
-              
+
             </p>
 
             <p>
                 <h6>Analog to Digital</h6>
               </p>
-              
+
               <p>
                 <h6>Sending Commands</h6>
               </p>
 
-              <p>
+              <p></p>
               <h5>Actuator Module</h5>
-              
-              </p>
-               
+
+              <p>
+               The actuator module rests on top of the Roomba and receives commands from the command module over bluetooth. It actuates the laser and the Roomba, and reads from the light sensor to determine when it gets hit. An important benefit of our design is that the actuator module does not know if it's commands are coming from a human controller or from the autonomous control system. In both cases the command module sends commands in the same format. This drastically reduces the complexity of the actuator module.
+            </p>
+               <b>Communication with Roomba</b>
             <p>
-               <h6>Initialization</h6> 
+               The command module begins by initializing the Roomba. First the baud rate change pin is held low to wakeup the Roomba, then set high. After waiting two seconds, the pin is pulsed low three times for 200ms each. This tells the Roomba to communicate at a baud rate of 19200.
+            </p>
+               <img src="roombainit.png" />
+            <p>
+               After the third pulse, the the UART from the acuator module to the Roomba is initialized at 19200 baud and the start command is sent. After waiting 20ms to ensure the Roomba has started and entered passive mode, the CONTROL command is sent, putting the roomba in safe mode. You can see the code for this initialization process below.
+            </p>
+            <pre><code class="c++">uint8_t i;
+DDRB |= (1<< PB1);
+
+Task_Sleep(201); // Note: Task_Sleep's parameter is in 10ms increments
+for (i = 0; i < 3; i++)
+{
+  PORTB &amp;= ~(1<< PB1);
+  Task_Sleep(20);
+  PORTB |= (1<< PB1);
+  Task_Sleep(20);
+}
+
+uart_start1(19200);
+
+uart_putchar(START);
+Task_Sleep(2);
+
+uart_putchar(CONTROL);
+Task_Sleep(2);</code></pre><br/>
+            <p>
+               After intializing the Roomba, we load the defeat song onto the roomba. The SONG command takes the number of the song to load (in this case the first song), the number of notes in the song, and then a list of notes followed by their lengths, at one byte each.
+            </p>
+               <b>Driving the Roomba</b>
+            <p>
+               The DRIVE command on the Roomba takes two parameters, a velocity and a radius. These are sent as two 16-bit integers in big-endian over the UART to the roomba in the order: velocity high-byte, velocity low-byte, radius high-byte, radius low-byte. The velocity parameter specifies the speed the Roomba should travel in millimeters per second in the range [-500, 500]. This limits the Roomba to a maximum velocity of 0.5m/s. The radius parameter specifies the point around which the Roomba should rotate in millimeters from it's center in the range [-2000, 2000]. The positive values of radius produce counter-clockwise movement, and the negative values results in clockwise movement. A value of -1 or 1 results in spinning on the spot clockwise or counter-clockwise respectively. The large the magnitude of the radius, the straighter the Roomba moves.
+            </p>
+              <b>Detecting Walls</b>
+            <p>
+               To detect physical walls and virutal walls we use the bumper and the virtual wall detector respectively. We decided to use the bumper because it makes the robot more agressive rather than using the ranged physical wall detectors. We use the SENSORS command to read data from the Roomba. This command takes the number of sensors to query (in this case two), and the identifies of the requested sensors, in one byte each. After waiting 10ms for a response we read the states of the sensors back from the UART and detect a wall if either value is non-zero.
+            </p>
+            <pre><code class="c++">uint16_t retval;
+uart_reset_receive1();
+uart_putchar(149); //SENSORS
+uart_putchar(2);  // want 2 data
+uart_putchar(13); // virtual wall
+uart_putchar(7);  // bumper
+
+Task_Sleep(1);
+if (uart_bytes_received1() < 2) {
+  uart_reset_receive1();
+  return 0;
+} else {
+  retval = (uart_get_byte(0)<<8) | (uart_get_byte(1));
+}
+
+uart_reset_receive1();
+return retval;</code></pre><br/>
+              <b>Detecting the Laser</b>
+            <p>
+               We detect if we have been hit by a laser using a series of photoresistors within a plastic cup. The plastic cup diffuses the laser light enough that it is possible to detect the difference in light between when the cup is hit by a laser and the ambient light of the room. In order to have the photoresistors to be read by the AVR analog inputs, an additional 10k&#x2126 resistor is required. By using four photoresistors evenly spaced within the cup, we have a larger chance of detecting the laser. We use an exponentially weighted moving average to smooth the value of the volatage read from the analogue pin. This helps the system detect actual hits, rather than spurious readings. When the smoothed voltage exceeds a threshold, the death song is played, the dead flag is set, and the DRIVE command is sent with zero velocity, halting the roomba in place.
+            </p>
+            <table style="border-width: 0px; border-color: white;">
+                    <tbody style="border-width: 0px;">
+                        <tr>
+                            <td>
+                                <img src="photoresistorcup.png" />
+                            </td>
+                            <td style="vertical-align: top;">
+                                <pre><code class="c++">float weight = 0.5;
+lightval = (int)(((float)lightval * weight) + ((float)ReadADC(0)*1-weight));
+
+int threshold = 30;
+
+if (lightval > threshold) {
+  dead = true;
+  Roomba_PlaySong(0);
+  Roomba_Drive(0,0);
+}</code></pre>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+              <br/>
+               <b>Main Loop</b>
+            <p>
+               The main loop first checks if the dead flag has been set. If it has, then we have been hit by a laser at some point in the past, and should do nothing; otherwise the loop continues normally. After a short delay, we read the latest command from the command module and extract the bits representing the velocity, radius, and if the laser should be fired. The laser pin is set if it should be fired, and the DRIVE command is sent to the Roomba with the values from the command. The sensors are checked to see if we hit a physical wall or a virtual wall and if they are we back up for half a second. Lastly, the photoresistors are checked to see if we were hit and the dead flag is set if we were.
+            </p>
+               <b>PWM</b>
             </p>
 
             <p>
-               <h6>PWM</h6> 
+               <h6></h6>
             </p>
 
             <p>
-               <h6>Detecting light</h6> 
-            </p>
-
-            <p>
-               <h6>Communication with Roomba</h6> 
+               <h6></h6>
             </p>
 
             <h4>Phase 2</h4>
-             <p>
               <h5>Command module</h5>
+            <p>
+              For Phase 2, we implemented an autonomous AI with deterministic bounded random movement. Every
             </p>
             <p>
               <h5>Actuator Module</h5>
-              
+
               </p>
 
 
