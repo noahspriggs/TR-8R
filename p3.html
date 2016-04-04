@@ -54,17 +54,46 @@
             <p>
               <h5>Command module</h5>
             </p>
+              <b>Overview</b>
             <p>
               <h6>Initialization</h6>
-
+              The command module consists of a joystick and bluetooth transmitter. These allow the user to remotely control the Roomba.
             </p>
 
+                <b>Analog to Digital</b>
             <p>
-                <h6>Analog to Digital</h6>
-              </p>
+                In order to interpret the signal from the joystick we need to use the arduino's built in analog-to-digital converter. This takes the input from the joystick's x and y coordinates, a voltage between 0 and +5V, and converts it into a 16-bit integer between 0 and 1024. The converter uses 3 relevant registers: ADMUX, ADCSRA, and ADC.
 
+                The ADMUX register stores information about what reference voltage is used and what channel to pick. In the 2 most significant bits we tell it to use Vcc, and we use the first 4 bits for selecting the channel.
+
+ <pre><code class="c++">// Select Vref=AVcc
+ADMUX |= (1 << REFS0);
+
+//select ADC channel with safety mask (do this before reading)
+ADMUX = (ADMUX & 0xF0) | (ADCchannel & 0x0F);</code></pre>
+
+                The ADCSRA register is used to enable conversion and set the prescalar (the ratio at which conversion will take place compared to the clock speed). The most significant bit is the ADC enable bit, so this must be set to 1, and the 3 least significat bits are the prescalar. A bigger prescalar corresponds to less frequency but more accuracy, so because we don't need the values too frequently, we use the biggest prescalar available.
+
+               <pre><code class="c++">//set prescaller to 128 and enable ADC
+ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0) | (1 << ADEN);  </code></pre>
+
+                The ADCL and ADCH registers are represented as a single value called ADC, and this is where the result of the conversion takes place. In order to confirm that conversion has completed, we set the ADSC bit of the ADCSRA register to 1, and when conversion completes it is automatically set to 0.
+
+                <pre><code class="c++">ADCSRA |= (1 << ADSC);
+// wait until ADC conversion is complete
+while ( ADCSRA & (1 << ADSC) );
+return ADC;</code></pre>
+
+
+              </p>
+            <b>Sending Commands</b>
               <p>
-                <h6>Sending Commands</h6>
+
+                Multiple factors needed to be considered as to how the Roomba would be controlled. The difficulty in this process is attempting to balance ease of use with absolute control. For example the roomba could have a fixed speed and the x component of the joystick could determine the turning radius, this solution is extremely intuitive to use, but does not offer as much control as we desired (e.g. the user can not back up or accelerate). Another possible solution is to take advantage of the direct drive mode on the Roomba, and have the x-component control the left wheel and the y-component control the right wheel. This method offers exact control of both wheel velocities at once, so it is desireable in terms of control, however the interface is not easily learned as it requires mental separation of the axes. <br/><br/> <img src="turngraph.png" width="350" height="350" align="left" hspace="15" />We opted for a straight forward approach where the y-component controls the velocity and the x-component controls the turning radius. The only complication we encountered with this scheme was in implementation, the magnitude of the turning radius correlates inversely with how much the Roomba actually turns. For example a turning radius of ~2000 causes the roomba to drive straight ahead, and a turning radius of 1 causes it to rotate in place. Due to this we had to convert our desired turning radius to roughly match the graph to the left.
+
+                <br/><br/>
+                Once we have the results from the ADC, the joystick values are transmitted to the Roomba via bluetooth. Every time step they are sent as a one byte package with the 4 most significant bits as the left/right rotation, the next 3 as the forwards/backwards velocity, and the final bit to control the laser. We found that 16 options for the rotation and 8 options for the velocity were more than enough.
+                <img src="commandbyte.png" />
               </p>
 
               <p></p>
