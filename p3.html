@@ -56,9 +56,22 @@
             </p>
               <b>Overview</b>
             <p>
-              <h6>Initialization</h6>
+              
               The command module consists of a joystick and bluetooth transmitter. These allow the user to remotely control the Roomba.
             </p>
+            <b>UART Setup</b>
+            <p>
+              
+              This project required manually handling UART transmission via the microcontrollers' RX and TX ports. In order to accomplish this we had to initialize UART by modifying the UCSRnB and UCSRnC registers, as well as calculating the baud rate and storing it in UBRRnL/H. The relevant bits of UCSRnB are ENRXn and ENTXn, which enable UART transmission, and RXCIEn, which enables the interrupt upon receiving data. The relevant bits of UCSRnC are bits 1 and 2, which should be set to 1 to indicate that we are sending data that has a length of 8 bits.
+
+              <br/><br/>
+              In the UART RX interrupt (called with ISR(USART0_RX_vect)), all we do is make sure that the RXCn bit of the UCSRnA register has been cleared, then we are free to read from the UDRn register which contains the received data. We store our data in a buffer that can be indexed into, however due to having a relatively simple system we can afford to wipe the buffer each time we read in order to always be receiving relevant data.
+
+
+            </p>
+
+
+
 
                 <b>Analog to Digital</b>
             <p>
@@ -189,6 +202,8 @@ if (lightval > threshold) {
                The main loop first checks if the dead flag has been set. If it has, then we have been hit by a laser at some point in the past, and should do nothing; otherwise the loop continues normally. After a short delay, we read the latest command from the command module and extract the bits representing the velocity, radius, and if the laser should be fired. The laser pin is set if it should be fired, and the DRIVE command is sent to the Roomba with the values from the command. The sensors are checked to see if we hit a physical wall or a virtual wall and if they are we back up for half a second. Lastly, the photoresistors are checked to see if we were hit and the dead flag is set if we were.
             </p>
                <b>PWM</b>
+            <p>
+              In order to control the servo we needed to send output to it using pulse width modulation(PWM). This was accomplished by using the microcontroller's build in PWM capabilities. To do this we initialize a timer (We used timer 2) with a prescalar to place the frequency around 20ms. Then setting the ORC register for the corresponding timer each update step to result in pulses between 500 &micro;s and 2500 &micro;s. Refer to the datasheet to see which PWM pins are activated by which timer, in our case timer 2 uses pins 9 and 10. Unfortunately we did not end up using the servo because we favoured having maximum control of the Roomba's position.
             </p>
 
             <p>
