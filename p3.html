@@ -169,6 +169,10 @@ if (uart_bytes_received1() < 2) {
 
 uart_reset_receive1();
 return retval;</code></pre><br/>
+            <p>
+              The 
+
+            </p>
               <b>Detecting the Laser</b>
             <p>
                We detect if we have been hit by a laser using a series of photoresistors within a plastic cup. The plastic cup diffuses the laser light enough that it is possible to detect the difference in light between when the cup is hit by a laser and the ambient light of the room. In order to have the photoresistors to be read by the AVR analog inputs, an additional 10k&#x2126 resistor is required. By using four photoresistors evenly spaced within the cup, we have a larger chance of detecting the laser. We use an exponentially weighted moving average to smooth the value of the volatage read from the analogue pin. This helps the system detect actual hits, rather than spurious readings. When the smoothed voltage exceeds a threshold, the death song is played, the dead flag is set, and the DRIVE command is sent with zero velocity, halting the roomba in place.
@@ -221,10 +225,12 @@ if (lightval > threshold) {
             </p>
             <p>
               This behaviour results is suprisingly consistent movement. The roomba proceeds in a direction while juking from side to side and ocassionally stopping to surprise opponents. When it encounters a wall, it reverses and rotates, before proceeding in the new direction as before. We experimented with more complex behavours, such as remembering walls and predicting our location, but found these were too error prone. Pseudorandom pathing yielded the best movement patterns.
+                <img src="command2.png"/>
             </p>
               <h5>Actuator Module</h5>
               <p>
                 The actuator module is unaware if the system is operating autonomously or at the direction of a human. That behaviour is restricted to the command module and allows the actuator module to remain simple.
+                <img src="actuator2.png"/>
               </p>
 
             <h4>Testing</h4>
@@ -236,7 +242,7 @@ if (lightval > threshold) {
               We then tried rotating 90 degrees when we hit a wall. This failed because the bumper or virtual wall detector would still detect the presence of the wall, as the Roomba was still adjacent to it, resulting in the roomba spinning on the spot infinitley. We finally setteled on a combination of the two where the Roomba resverses and turns 90 degress. This allowed it to get away from the wall and resume normal travel.
             </p>
             <p>
-              The weakness of the virtual wall detector becomes aparent when the abouve behavoir is used. Because we can only detect if there is or is not a virtual wall, if the Roomba is reversed into the wall it will then reverse and turn through the wall and escape.
+              The weakness of the virtual wall detector becomes aparent when the abouve behavoir is used. Because we can only detect if there is or is not a virtual wall, if the Roomba is reversed into the wall it will then reverse and turn through the wall and escape. A method to solve this would be to back up a small amount, then requery for the virtual wall. If this initial backing up did not evade the wall then it is fair to assume that we backed into the wall, so the evasive manoeuvre would then drive forwards to avoid the wall because it was backed into.
             </p>
 
             <h4>Source Code</h4>
