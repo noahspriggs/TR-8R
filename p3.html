@@ -47,7 +47,7 @@
             <hr />
             <h4>Project Overview</h4>
             <p>
-
+            In this project we combined Project 1 and Project 2, with the addition of a Roomba robot, in order to make a fully functioning semi-autonomous battle machine. The project consisted of two phases. Phase 1 involved establishing a connection with the Roomba over bluetooth using our RTOS to initialize UART communication, then updating the code from Phase 1 to work with our RTOS, enabling us to control the Roomba remotely by sending it commands from the actuator module. In Phase 2 we added semi-autonomous capabilities to the Roomba enabling hands free movement with wall avoidance and the ability to still manually fire the laser.
             </p>
             <hr />
             <h4>Phase 1</h4>
@@ -56,7 +56,7 @@
             </p>
               <b>Overview</b>
             <p>
-              The command module consists of a joystick and bluetooth transmitter. These allow the user to remotely control the Roomba.
+              The command module consists of a joystick and bluetooth transmitter. These allow the user to remotely control the Roomba and laser.
             </p>
             <b>UART Setup</b>
             <p>
@@ -170,7 +170,8 @@ if (uart_bytes_received1() < 2) {
 uart_reset_receive1();
 return retval;</code></pre><br/>
             <p>
-              The 
+              The Roomba transmits values in bit form. For the virtual wall query, the zeroth bit is used. For the wall bumper, the last four bits correspond to the right bumper, left bumper, right wheel drop, and left wheel drop in ascending order of significance. We did not use the information regarding the wheel drops, but we returned that data just in case. The layout of the bytes received from the Roomba can be seen below.
+              <img src="roombabytes.png"
 
             </p>
               <b>Detecting the Laser</b>
