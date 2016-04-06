@@ -60,7 +60,7 @@
             </p>
             <b>UART Setup</b>
             <p>
-              
+
               This project required manually handling UART transmission via the microcontrollers' RX and TX ports. In order to accomplish this we had to initialize UART by modifying the UCSRnB and UCSRnC registers, as well as calculating the baud rate and storing it in UBRRnL/H. The relevant bits of UCSRnB are ENRXn and ENTXn, which enable UART transmission, and RXCIEn, which enables the interrupt upon receiving data. The relevant bits of UCSRnC are bits 1 and 2, which should be set to 1 to indicate that we are sending data that has a length of 8 bits.
 
               <br/><br/>
@@ -171,7 +171,8 @@ uart_reset_receive1();
 return retval;</code></pre><br/>
             <p>
               The Roomba transmits values in bit form. For the virtual wall query, the zeroth bit is used. For the wall bumper, the last four bits correspond to the right bumper, left bumper, right wheel drop, and left wheel drop in ascending order of significance. We did not use the information regarding the wheel drops, but we returned that data just in case. The layout of the bytes received from the Roomba can be seen below.
-              <img src="roombabytes.png"
+              <img src="roombabytes.png" />
+
 
             </p>
               <b>Detecting the Laser</b>
@@ -244,6 +245,17 @@ if (lightval > threshold) {
             </p>
             <p>
               The weakness of the virtual wall detector becomes aparent when the abouve behavoir is used. Because we can only detect if there is or is not a virtual wall, if the Roomba is reversed into the wall it will then reverse and turn through the wall and escape. A method to solve this would be to back up a small amount, then requery for the virtual wall. If this initial backing up did not evade the wall then it is fair to assume that we backed into the wall, so the evasive manoeuvre would then drive forwards to avoid the wall because it was backed into.
+            </p>
+
+            <h5>Light Sensor</h5>
+            <p>
+              Calibrating the light sensor proved rather difficult. The design specified in class called for a red plastic cup to be placed above the photoresistors to diffuse the laser light. This was intended to increase the targetable area of the robot to make the laser game more competitive. On one level, this was a physical challenge to ensure that the red cup let through a fixed amount of light. This was adjusted by taping up various parts of the cup to keep the level of light reaching the photorsistors consistent.
+            </p>
+            <p>
+              The primary difficulty was settling on a threshold for triggering robot death. Our first approach was to simply pick a number, and then if the voltage through the photoresistors ever exceeded this level, set the death flag. This approach was weak because the signal from the light sensors was very noisy and would frequently flicker above and below the threshold erratically, even if we were not hit by a laser. We corrected this by applying an exponentially weighted moving average to smooth the readings from the photoresistors. By selected a small threshold (30), we were able to accuratly detect a laser shining on the cup.
+            </p>
+            <p>
+              We also considered a derivative base approach. By taking the difference between the photoresistor readings at each iteration, and smoothing them with an exponentially weighted moving average, we hoped to detect peaks in the derivative of the photoresistor readings. These peaks correspond to large changes in the light levels that would signal the robot getting hit with a laser, while being robust against changes in the level of ambient light. Unfortunatly, the derivative was too flat and the peaks were too low to detect, so we used the above approach instead.
             </p>
 
             <h4>Source Code</h4>
